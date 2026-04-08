@@ -1,11 +1,9 @@
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from pathlib import Path
+from pages import register_html
 
 router = APIRouter()
 
-HTML_FILE = Path("sites/register/index.html")
-
 @router.get("/register", response_class=HTMLResponse)
-async def not_found_page():
-    return HTML_FILE.read_text()
+async def register_page():
+    return register_html

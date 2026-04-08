@@ -1,12 +1,13 @@
 from sqlalchemy import create_engine, Column, String, Integer
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session
 
 DATABASE_URL = "sqlite:///./Database.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 class User(Base):
     __tablename__ = "users"
@@ -15,3 +16,13 @@ class User(Base):
     created_at = Column(Integer, nullable=False)
 
 Base.metadata.create_all(bind=engine)
+
+# Wspólny dependency — używany przez api/login.py i api/register.py
+def get_db() -> Session:  # type: ignore[return]
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+__all__ = ["engine", "SessionLocal", "Base", "User", "get_db"]

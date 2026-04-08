@@ -1,11 +1,9 @@
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
-from pathlib import Path
+from pages import page_not_found_html
 
 router = APIRouter()
 
-HTML_FILE = Path("sites/pagenotfound/404.html")
-
 @router.get("/404", response_class=HTMLResponse)
 async def not_found_page():
-    return HTML_FILE.read_text()
+    return page_not_found_html
