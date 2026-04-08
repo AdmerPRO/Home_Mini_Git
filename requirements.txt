@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-dotenv
+bcrypt
+PyJWT
+slowapi
+
+pytest
+pytest-asyncio
