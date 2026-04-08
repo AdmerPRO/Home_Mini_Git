@@ -8,5 +8,7 @@ PyJWT
 slowapi
 httpx
 
+# Tests
+
 pytest
 pytest-asyncio
