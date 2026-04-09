@@ -11,4 +11,4 @@ httpx
 # Tests
 
 pytest
-pytest-asyncio
+pytest_asyncio
