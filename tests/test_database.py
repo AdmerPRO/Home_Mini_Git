@@ -1,9 +1,11 @@
 """
 Tests for database.py — User model, get_db dependency, schema.
 """
+
 import time
-import pytest
+
 import bcrypt
+import pytest
 from sqlalchemy import inspect
 
 
@@ -19,6 +21,7 @@ class TestUserModel:
 
     def test_create_user(self, db_session):
         from database import User
+
         hashed = bcrypt.hashpw(b"Secret123", bcrypt.gensalt()).decode()
         user = User(
             username="dbtest",
@@ -43,8 +46,10 @@ class TestUserModel:
         assert cols["password"]["nullable"] is False
 
     def test_duplicate_username_raises(self, db_session):
-        from database import User
         from sqlalchemy.exc import IntegrityError
+
+        from database import User
+
         ts = int(time.time() * 1000)
         hashed = bcrypt.hashpw(b"Secret123", bcrypt.gensalt()).decode()
         db_session.add(User(username="dup", password=hashed, created_at=ts))
@@ -58,6 +63,7 @@ class TestUserModel:
 class TestGetDb:
     def test_get_db_yields_session(self):
         from database import get_db
+
         gen = get_db()
         session = next(gen)
         assert session is not None

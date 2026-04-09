@@ -1,9 +1,10 @@
 """
 Shared pytest fixtures for Home_Mini_Git-server tests.
 """
+
 import time
+
 import pytest
-import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -25,6 +26,7 @@ def test_engine():
 def test_session_factory(test_engine):
     # Import Base after engine is ready so metadata is available
     from database import Base
+
     Base.metadata.create_all(bind=test_engine)
     return sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
@@ -46,8 +48,8 @@ def client(db_session):
     TestClient with the real FastAPI app, but with the DB dependency
     overridden to use the in-memory test database.
     """
-    from main import app
     from database import get_db
+    from main import app
 
     def override_get_db():
         try:

@@ -1,7 +1,6 @@
 """
 Tests for HTML page routes: /, /login, /register, /pagenotfound, and 404 handler.
 """
-import pytest
 
 
 class TestRootPage:

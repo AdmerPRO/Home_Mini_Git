@@ -12,3 +12,7 @@ httpx
 
 pytest
 pytest_asyncio
+flake8
+
+black
+isort
