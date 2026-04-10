@@ -1,5 +1,5 @@
 """
-Pre-loaded HTML pages — wczytywane raz przy starcie, używane przez routes/*.py
+Pre-loaded HTML pages — loaded once at startup, used by routes/*.py
 """
 
 import os

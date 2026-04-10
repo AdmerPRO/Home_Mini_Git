@@ -6,17 +6,14 @@ import jwt
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from database import User, get_db
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey123")
-TIMESTAMP_TOLERANCE_MS = 5000  # max 5 sekund różnicy
+TIMESTAMP_TOLERANCE_MS = 5100  # 5 s tolerance + ~100 ms buffer for processing delay
 
-limiter = Limiter(key_func=get_remote_address)
 router = APIRouter()
 
 
@@ -27,11 +24,10 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
-@limiter.limit("10/minute")
 async def login_user(
     request: Request, req: LoginRequest, db: Session = Depends(get_db)
 ):
-    # Walidacja timestamp — max 5 sekund różnicy od czasu serwera
+    # Validate timestamp — max 5 seconds difference from server time
     server_time_ms = int(time.time() * 1000)
     if abs(server_time_ms - req.timestamp) > TIMESTAMP_TOLERANCE_MS:
         raise HTTPException(status_code=400, detail="Request timestamp out of range")
@@ -46,7 +42,7 @@ async def login_user(
     payload = {
         "username": req.username,
         "iat": int(time.time()),
-        "exp": int(time.time()) + 86400,  # token ważny 24h
+        "exp": int(time.time()) + 86400,  # token valid for 24h
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 

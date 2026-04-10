@@ -6,6 +6,6 @@ from pages import page_not_found_html
 router = APIRouter()
 
 
-@router.get("/404", response_class=HTMLResponse)
+@router.get("/pagenotfound", response_class=HTMLResponse)
 async def not_found_page():
     return page_not_found_html

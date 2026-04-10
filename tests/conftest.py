@@ -8,8 +8,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 # Use in-memory SQLite for tests — never touches the real Database.db
+# StaticPool ensures all connections share the same in-memory database
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
 
@@ -18,6 +20,7 @@ def test_engine():
     engine = create_engine(
         TEST_DATABASE_URL,
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     return engine
 
@@ -32,14 +35,20 @@ def test_session_factory(test_engine):
 
 
 @pytest.fixture()
-def db_session(test_session_factory):
-    """Fresh DB session per test; rolls back after each test."""
+def db_session(test_session_factory, test_engine):
+    """Fresh DB session per test; cleans all tables after each test."""
+    from database import Base
+
     session = test_session_factory()
     try:
         yield session
     finally:
         session.rollback()
         session.close()
+        # Delete all rows from every table so each test starts with a clean DB
+        with test_engine.begin() as conn:
+            for table in reversed(Base.metadata.sorted_tables):
+                conn.execute(table.delete())
 
 
 @pytest.fixture()
@@ -48,6 +57,9 @@ def client(db_session):
     TestClient with the real FastAPI app, but with the DB dependency
     overridden to use the in-memory test database.
     """
+    from slowapi import Limiter
+    from slowapi.util import get_remote_address
+
     from database import get_db
     from main import app
 
@@ -56,6 +68,9 @@ def client(db_session):
             yield db_session
         finally:
             pass
+
+    # Disable rate limiting during tests by resetting the limiter storage
+    app.state.limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app, raise_server_exceptions=True) as c:

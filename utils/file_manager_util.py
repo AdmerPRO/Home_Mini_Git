@@ -3,21 +3,21 @@ from pathlib import Path
 
 
 def setup_start(base_path: Path):
-    Path("../user_projects").mkdir(parents=True, exist_ok=True)
-    Path("../user_tests/runner").mkdir(parents=True, exist_ok=True)
-    Path("../deployed_projects").mkdir(parents=True, exist_ok=True)
+    Path(f"{base_path}/user_projects").mkdir(parents=True, exist_ok=True)
+    Path(f"{base_path}/user_tests/runner").mkdir(parents=True, exist_ok=True)
+    Path(f"{base_path}/deployed_projects").mkdir(parents=True, exist_ok=True)
     return True
 
 
 def add_user(base_path: Path, username):
-    Path(f"../user_projects/{username}").mkdir(parents=True, exist_ok=True)
-    Path(f"../user_tests/runner/{username}").mkdir(parents=True, exist_ok=True)
-    Path(f"../deployed_projects/{username}").mkdir(parents=True, exist_ok=True)
+    Path(f"{base_path}/user_projects/{username}").mkdir(parents=True, exist_ok=True)
+    Path(f"{base_path}/user_tests/runner/{username}").mkdir(parents=True, exist_ok=True)
+    Path(f"{base_path}/deployed_projects/{username}").mkdir(parents=True, exist_ok=True)
     return True
 
 
 def create_project(base_path: Path, username, name, private):
-    path = Path("../user_projects") / username / name
+    path = Path(f"{base_path}/user_projects") / username / name
     path.mkdir(parents=True, exist_ok=True)
 
     settings_file = path / "settings.txt"

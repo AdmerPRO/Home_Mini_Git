@@ -1,3 +1,5 @@
+from typing import Generator
+
 from sqlalchemy import Column, Integer, String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -14,15 +16,15 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
     username = Column(String, primary_key=True, index=True)
-    password = Column(String, nullable=False)  # tu zapisujemy tylko hash
+    password = Column(String, nullable=False)  # only the hash is stored here
     created_at = Column(Integer, nullable=False)
 
 
 Base.metadata.create_all(bind=engine)
 
 
-# Wspólny dependency — używany przez api/login.py i api/register.py
-def get_db() -> Session:  # type: ignore[return]
+# Shared dependency — used by api/login.py and api/register.py
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
