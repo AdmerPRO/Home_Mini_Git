@@ -12,7 +12,7 @@ from database import User, get_db
 
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey123")
-TIMESTAMP_TOLERANCE_MS = 5100  # 5 s tolerance + ~100 ms buffer for processing delay
+TIMESTAMP_TOLERANCE_MS = 5200  # 5 s tolerance + ~200 ms buffer for processing delay
 
 router = APIRouter()
 
