@@ -1,1 +1,14 @@
-The project is not finished...
+This project is not yet finished...
+
+Done so far:
+- FastAPI server with mounted static pages
+- Routes for `/`, `/register`, `/login` and custom 404 page
+- SQLite database with `users` table created on startup
+- User registration API at `/api/register`
+- User login API at `/api/login`
+- Password hashing with `bcrypt`
+- JWT token generation after successful login
+- Request validation with Pydantic
+- Timestamp validation for register/login requests
+- Duplicate user detection during registration
+- Automated tests for routes, database, register API, login API and utilities
