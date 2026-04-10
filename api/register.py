@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 
 import bcrypt
 from dotenv import load_dotenv
@@ -8,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from database import User, get_db
+from utils.file_manager_util import add_user
 
 load_dotenv()
 SALT_ROUNDS = int(os.getenv("BCRYPT_SALT_ROUNDS", 12))
@@ -41,5 +43,7 @@ async def register_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    add_user(Path("../"), user)
 
     return {"success": True, "message": f"User {req.username} registered"}
