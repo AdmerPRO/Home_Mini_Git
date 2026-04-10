@@ -5,7 +5,6 @@ import bcrypt
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from database import User, get_db
