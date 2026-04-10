@@ -36,6 +36,17 @@ def create_project(base_path: Path, username, name, private):
     return True
 
 
+def add_contributor(base_path: Path, username, project, owner):
+    path = Path(f"{base_path}/user_projects") / owner / project
+    settings_file = path / "settings.txt"
+    with open(settings_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    data["contributors"].append(username)
+    with open(settings_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+    return True
+
+
 if __name__ == "__main__":
     setup_start(Path("../"))
     add_user(Path("../"), "AdmerPRO")

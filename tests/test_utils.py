@@ -1,6 +1,7 @@
 import json
 
-from utils.file_manager_util import add_user, create_project, setup_start
+from utils.file_manager_util import (add_contributor, add_user, create_project,
+                                     setup_start)
 
 
 def TestSetup_Start(tmp_path):
@@ -42,7 +43,7 @@ def TestAdd_User(tmp_path):
     assert user2_folder.is_dir()
 
 
-def test_create_project(tmp_path):
+def TestCreate_project(tmp_path):
     setup_start(tmp_path)
 
     add_user(tmp_path, "test_username1")
@@ -69,7 +70,28 @@ def test_create_project(tmp_path):
     assert data1["owner"] == "test_username1"
     assert data1["project_name"] == "test_project1"
     assert data1["private"] is True
+    assert "contributors" in data1
 
     assert data2["owner"] == "test_username2"
     assert data2["project_name"] == "test_project2"
     assert data2["private"] is False
+    assert "contributors" in data1
+
+
+def TestAdd_Contributor(tmp_path):
+    setup_start(tmp_path)
+    add_user(tmp_path, "test_username1")
+    add_user(tmp_path, "test_username2")
+    create_project(tmp_path, "test_username1", "test_project1", True)
+
+    assert add_contributor(
+        tmp_path, "test_username2", "test_project1", "test_username1"
+    )
+
+    project_path = tmp_path / "user_projects" / "test_username1" / "test_project1"
+    settings_file = project_path / "settings.txt"
+
+    with open(settings_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert "test_username2" in data["contributors"]
