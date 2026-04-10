@@ -12,7 +12,7 @@ from api import register as registerapi
 from pages import page_not_found_html
 from routes import login, pagenotfound, register, root
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
 app = FastAPI()
 app.state.limiter = limiter
 
@@ -23,6 +23,14 @@ async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
+
+@app.on_event("startup")
+async def create_tables():
+    from database import Base, engine
+
+    Base.metadata.create_all(bind=engine)
+
+
 # ================================
 # Mount static files per page
 # ================================
@@ -32,11 +40,6 @@ app.mount(
     "/root",
     StaticFiles(directory=os.path.join(BASE_DIR, "sites/root")),
     name="root_static",
-)
-app.mount(
-    "/pagenotfound",
-    StaticFiles(directory=os.path.join(BASE_DIR, "sites/pagenotfound")),
-    name="404_static",
 )
 app.mount(
     "/login",

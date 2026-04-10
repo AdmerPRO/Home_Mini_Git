@@ -39,6 +39,10 @@ def db_session(test_session_factory, test_engine):
     """Fresh DB session per test; cleans all tables after each test."""
     from database import Base
 
+    # Safety net: ensure tables exist on the test engine regardless of
+    # import order (e.g. if main.py was imported before this fixture ran).
+    Base.metadata.create_all(bind=test_engine)
+
     session = test_session_factory()
     try:
         yield session
@@ -60,6 +64,7 @@ def client(db_session):
     from slowapi import Limiter
     from slowapi.util import get_remote_address
 
+    import main as main_module
     from database import get_db
     from main import app
 
@@ -69,8 +74,13 @@ def client(db_session):
         finally:
             pass
 
-    # Disable rate limiting during tests by resetting the limiter storage
-    app.state.limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
+    # Disable rate limiting during tests: create a fresh in-memory limiter and
+    # patch BOTH app.state.limiter (read by slowapi middleware per-request) AND
+    # the module-level `limiter` object in main.py (held by the middleware stack
+    # reference captured at startup), so counts never bleed between tests.
+    fresh_limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
+    app.state.limiter = fresh_limiter
+    main_module.limiter = fresh_limiter
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app, raise_server_exceptions=True) as c:

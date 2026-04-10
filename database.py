@@ -20,7 +20,11 @@ class User(Base):
     created_at = Column(Integer, nullable=False)
 
 
-Base.metadata.create_all(bind=engine)
+# NOTE: Base.metadata.create_all() is intentionally NOT called here.
+# Production tables are created by the @app.on_event("startup") hook in main.py.
+# Test tables are created by the test_session_factory fixture in tests/conftest.py.
+# Calling create_all() at import time would always hit the production engine,
+# even when the test suite overrides the DB dependency.
 
 
 # Shared dependency — used by api/login.py and api/register.py
