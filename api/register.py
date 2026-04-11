@@ -44,6 +44,6 @@ async def register_user(
     db.commit()
     db.refresh(user)
 
-    add_user(Path("../"), user)
+    add_user(Path("../"), req.username)
 
     return {"success": True, "message": f"User {req.username} registered"}

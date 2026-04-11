@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -13,7 +14,17 @@ from pages import page_not_found_html
 from routes import login, pagenotfound, register, root
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
-app = FastAPI()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from database import Base, engine
+
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 
 
@@ -22,13 +33,6 @@ async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:
 
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
-
-
-@app.on_event("startup")
-async def create_tables():
-    from database import Base, engine
-
-    Base.metadata.create_all(bind=engine)
 
 
 # ================================

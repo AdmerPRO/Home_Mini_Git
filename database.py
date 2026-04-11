@@ -21,7 +21,7 @@ class User(Base):
 
 
 # NOTE: Base.metadata.create_all() is intentionally NOT called here.
-# Production tables are created by the @app.on_event("startup") hook in main.py.
+# Production tables are created by the FastAPI lifespan handler in main.py.
 # Test tables are created by the test_session_factory fixture in tests/conftest.py.
 # Calling create_all() at import time would always hit the production engine,
 # even when the test suite overrides the DB dependency.
