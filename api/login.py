@@ -1,17 +1,13 @@
-import os
 import time
 
 import bcrypt
-import jwt
-from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from auth import create_access_token, set_session_cookie
 from database import User, get_db
 
-load_dotenv()
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey123")
 TIMESTAMP_TOLERANCE_MS = 5500  # 5 s tolerance + ~500 ms buffer for processing delay
 
 router = APIRouter()
@@ -25,7 +21,10 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 async def login_user(
-    request: Request, req: LoginRequest, db: Session = Depends(get_db)
+    request: Request,
+    req: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
 ):
     # Validate timestamp — max 5 seconds difference from server time
     server_time_ms = int(time.time() * 1000)
@@ -39,11 +38,8 @@ async def login_user(
     if not bcrypt.checkpw(req.password.encode(), user.password.encode()):
         raise HTTPException(status_code=400, detail="Incorrect password")
 
-    payload = {
-        "username": req.username,
-        "iat": int(time.time()),
-        "exp": int(time.time()) + 86400,  # token valid for 24h
-    }
-    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+    token = create_access_token(req.username)
+    set_session_cookie(response, request, token)
+    response.headers["Cache-Control"] = "no-store"
 
-    return {"success": True, "token": token}
+    return {"success": True, "token": token, "nickname": req.username}

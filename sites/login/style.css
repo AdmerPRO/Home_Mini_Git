@@ -67,3 +67,8 @@ input[type="text"], input[type="password"] {
     color: #007bff;
     text-decoration: none;
 }
+
+.error-message {
+    color: #c62828;
+    min-height: 1.2em;
+}

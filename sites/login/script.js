@@ -1,6 +1,23 @@
 const form = document.getElementById("loginForm");
 const errorMsg = document.getElementById("errorMsg");
 
+async function redirectIfSessionExists() {
+    try {
+        const res = await fetch("/api/session", {
+            method: "GET",
+            headers: { "Accept": "application/json" },
+            credentials: "same-origin",
+        });
+
+        const data = await res.json();
+        if (data.authenticated) {
+            window.location.replace("/dashboard");
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
     
@@ -17,10 +34,10 @@ form.addEventListener("submit", async (e) => {
 
         const data = await res.json();
 
-        if(data.success){
+        if(res.ok && data.success){
             window.location.href = "/dashboard";
         } else {
-            errorMsg.textContent = data.message || "Login failed";
+            errorMsg.textContent = data.detail || data.message || "Login failed";
         }
 
     } catch(err){
@@ -28,3 +45,5 @@ form.addEventListener("submit", async (e) => {
         console.error(err);
     }
 });
+
+redirectIfSessionExists();

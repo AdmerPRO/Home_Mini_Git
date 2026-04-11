@@ -5,6 +5,7 @@ pydantic
 python-dotenv
 bcrypt
 PyJWT
+cryptography
 slowapi
 httpx
 

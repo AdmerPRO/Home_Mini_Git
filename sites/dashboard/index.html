@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Home Mini Git</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+    <main class="shell">
+        <section class="hero">
+            <p class="eyebrow">Home Mini Git</p>
+            <h1 id="greeting">Hey!</h1>
+            <p class="subtitle">Manage your projects and create new ones from one place.</p>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Projects</h2>
+                <button id="logoutButton" class="btn ghost" type="button">Logout</button>
+            </div>
+            <ul id="projectsList" class="projects-list"></ul>
+            <p id="emptyState" class="empty-state" hidden>No projects yet.</p>
+        </section>
+
+        <section class="panel accent">
+            <h2>Create New Project</h2>
+            <p class="subtitle">This section is ready for the next backend step.</p>
+            <button class="btn primary" type="button" disabled>Create new project</button>
+        </section>
+    </main>
+
+    <script src="/dashboard/script.js"></script>
+</body>
+</html>

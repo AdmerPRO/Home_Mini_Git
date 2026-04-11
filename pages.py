@@ -16,3 +16,4 @@ page_not_found_html = _read(os.path.join(BASE_DIR, "sites/pagenotfound/404.html"
 root_html = _read(os.path.join(BASE_DIR, "sites/root/index.html"))
 login_html = _read(os.path.join(BASE_DIR, "sites/login/index.html"))
 register_html = _read(os.path.join(BASE_DIR, "sites/register/index.html"))
+dashboard_html = _read(os.path.join(BASE_DIR, "sites/dashboard/index.html"))
