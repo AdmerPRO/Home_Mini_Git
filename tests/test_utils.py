@@ -18,7 +18,12 @@ from utils.repository_manager_util import (
 
 
 def test_app_paths_stay_inside_server_directory():
-    assert SERVER_ROOT.name == "server"
+    # SERVER_ROOT must point to the project root (the directory that owns
+    # pytest.ini), not to some parent directory outside the project.
+    assert (SERVER_ROOT / "pytest.ini").exists(), (
+        f"SERVER_ROOT ({SERVER_ROOT}) does not contain pytest.ini; "
+        "it may be pointing outside the project directory."
+    )
     assert DATA_ROOT == SERVER_ROOT
 
 
