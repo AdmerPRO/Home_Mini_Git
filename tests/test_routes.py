@@ -2,7 +2,7 @@
 Tests for HTML page routes: /, /login, /register, /pagenotfound, and 404 handler.
 """
 
-from auth import SESSION_COOKIE_NAME
+from core.auth import SESSION_COOKIE_NAME
 
 
 class TestRootPage:
@@ -68,6 +68,25 @@ class TestRegisterPage:
 
     def test_register_page_returns_html(self, client):
         res = client.get("/register")
+        assert "text/html" in res.headers["content-type"]
+
+
+class TestExplorePage:
+    def test_explore_page_returns_200(self, client):
+        res = client.get("/explore")
+        assert res.status_code == 200
+        assert "text/html" in res.headers["content-type"]
+
+
+class TestPublicDetailPages:
+    def test_user_profile_page_returns_200(self, client):
+        res = client.get("/users/testuser")
+        assert res.status_code == 200
+        assert "text/html" in res.headers["content-type"]
+
+    def test_repository_page_returns_200(self, client):
+        res = client.get("/repositories/testuser/example")
+        assert res.status_code == 200
         assert "text/html" in res.headers["content-type"]
 
 

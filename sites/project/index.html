@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repository - Home Mini Git</title>
+    <link rel="stylesheet" href="/repository-assets/style.css">
+</head>
+<body>
+    <main class="shell">
+        <header class="topbar">
+            <a class="brand" href="/explore">Back to explore</a>
+            <a class="btn ghost" id="ownerProfileLink" href="/explore">Owner profile</a>
+        </header>
+
+        <section class="hero">
+            <p class="eyebrow">Repository</p>
+            <h1 id="repositoryTitle">Loading repository...</h1>
+            <p id="repositoryDescription" class="subtitle"></p>
+            <div id="repositoryMeta" class="meta-row"></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Projects</h2>
+            </div>
+            <div id="repositoryProjects" class="owner-card"></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Owner</h2>
+            </div>
+            <div id="ownerCard" class="owner-card"></div>
+        </section>
+    </main>
+
+    <script src="/repository-assets/script.js"></script>
+</body>
+</html>

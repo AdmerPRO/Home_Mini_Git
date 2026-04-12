@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from auth import get_current_username, redirect_to_login
-from database import User, get_db
+from core.auth import get_current_username, redirect_to_login
+from core.database import User, get_db
 from pages import dashboard_html
 
 router = APIRouter()

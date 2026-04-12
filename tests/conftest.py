@@ -28,16 +28,26 @@ def test_engine():
 @pytest.fixture(scope="session")
 def test_session_factory(test_engine):
     # Import Base after engine is ready so metadata is available
-    from database import Base
+    from core.database import Base
 
     Base.metadata.create_all(bind=test_engine)
     return sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
 @pytest.fixture()
+def data_root(tmp_path, monkeypatch):
+    import app_paths as app_paths_wrapper
+    from core import app_paths as core_app_paths
+
+    monkeypatch.setattr(core_app_paths, "DATA_ROOT", tmp_path)
+    monkeypatch.setattr(app_paths_wrapper, "DATA_ROOT", tmp_path)
+    return tmp_path
+
+
+@pytest.fixture()
 def db_session(test_session_factory, test_engine):
     """Fresh DB session per test; cleans all tables after each test."""
-    from database import Base
+    from core.database import Base
 
     # Safety net: ensure tables exist on the test engine regardless of
     # import order (e.g. if main.py was imported before this fixture ran).
@@ -56,7 +66,7 @@ def db_session(test_session_factory, test_engine):
 
 
 @pytest.fixture()
-def client(db_session):
+def client(db_session, data_root):
     """
     TestClient with the real FastAPI app, but with the DB dependency
     overridden to use the in-memory test database.
@@ -65,7 +75,7 @@ def client(db_session):
     from slowapi.util import get_remote_address
 
     import main as main_module
-    from database import get_db
+    from core.database import get_db
     from main import app
 
     def override_get_db():

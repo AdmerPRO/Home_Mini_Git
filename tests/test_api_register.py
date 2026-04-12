@@ -17,7 +17,7 @@ class TestRegisterSuccess:
         self, client, db_session, valid_register_payload
     ):
         client.post("/api/register", json=valid_register_payload)
-        from database import User
+        from core.database import User
 
         user = db_session.query(User).filter(User.username == "testuser").first()
         assert user is not None
@@ -28,7 +28,7 @@ class TestRegisterSuccess:
         self, client, db_session, valid_register_payload
     ):
         client.post("/api/register", json=valid_register_payload)
-        from database import User
+        from core.database import User
 
         user = db_session.query(User).filter(User.username == "testuser").first()
         assert user.username == "testuser"
@@ -37,7 +37,7 @@ class TestRegisterSuccess:
         self, client, db_session, valid_register_payload
     ):
         client.post("/api/register", json=valid_register_payload)
-        from database import User
+        from core.database import User
 
         user = db_session.query(User).filter(User.username == "testuser").first()
         assert user.created_at == valid_register_payload["timestamp"]

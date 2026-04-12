@@ -1,11 +1,14 @@
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
-from auth import clear_session_cookie, get_current_username
-from database import User, get_db
-from utils.file_manager_util import get_user_projects
+from core import app_paths
+from core.auth import clear_session_cookie, get_current_username
+from core.database import User, get_db
+from utils.repository_manager_util import (
+    get_user_profile,
+    get_user_repositories,
+    get_user_repository_names,
+)
 
 router = APIRouter()
 
@@ -26,12 +29,15 @@ async def get_session(
         response.headers["Cache-Control"] = "no-store"
         return {"authenticated": False}
 
-    projects = get_user_projects(Path("../"), username)
+    repository_cards = get_user_repositories(app_paths.DATA_ROOT, username)
+    profile = get_user_profile(app_paths.DATA_ROOT, username)
     response.headers["Cache-Control"] = "no-store"
     return {
         "authenticated": True,
         "nickname": username,
-        "projects": projects,
+        "repositories": get_user_repository_names(app_paths.DATA_ROOT, username),
+        "repository_cards": repository_cards,
+        "profile": profile,
     }
 
 

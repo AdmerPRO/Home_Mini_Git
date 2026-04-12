@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - Home Mini Git</title>
+    <link rel="stylesheet" href="/user-assets/style.css">
+</head>
+<body>
+    <main class="shell">
+        <header class="topbar">
+            <a class="brand" href="/explore">Back to explore</a>
+            <a class="btn ghost" href="/dashboard">Dashboard</a>
+        </header>
+
+        <section class="hero">
+            <div id="profileHeader" class="profile-header"></div>
+            <p id="profileBio" class="subtitle"></p>
+            <div id="profileMeta" class="meta-row"></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Public Repositories</h2>
+            </div>
+            <div id="repositoriesGrid" class="grid"></div>
+            <p id="emptyState" class="empty-state" hidden>No public repositories yet.</p>
+        </section>
+    </main>
+
+    <script src="/user-assets/script.js"></script>
+</body>
+</html>

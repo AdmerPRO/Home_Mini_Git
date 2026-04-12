@@ -5,9 +5,16 @@ Tests for auth session helpers.
 from fastapi import Request
 from fastapi.responses import Response
 
-from auth import (SESSION_COOKIE_NAME, clear_session_cookie,
-                  create_access_token, decode_access_token, decrypt_token,
-                  encrypt_token, get_current_username, set_session_cookie)
+from core.auth import (
+    SESSION_COOKIE_NAME,
+    clear_session_cookie,
+    create_access_token,
+    decode_access_token,
+    decrypt_token,
+    encrypt_token,
+    get_current_username,
+    set_session_cookie,
+)
 
 
 def _build_request(cookies=None, scheme="http", headers=None):

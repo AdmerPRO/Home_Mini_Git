@@ -8,25 +8,76 @@
 </head>
 <body>
     <main class="shell">
+        <header class="topbar">
+            <a class="brand" href="/explore">Explore public repositories</a>
+            <button id="logoutButton" class="btn ghost" type="button">Logout</button>
+        </header>
+
         <section class="hero">
             <p class="eyebrow">Home Mini Git</p>
             <h1 id="greeting">Hey!</h1>
-            <p class="subtitle">Manage your projects and create new ones from one place.</p>
+            <p id="profileLead" class="subtitle">Manage your repositories and shape your public profile from one place.</p>
+        </section>
+
+        <section class="layout">
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Your Repositories</h2>
+                    <span id="repositoryCount" class="pill">0 repositories</span>
+                </div>
+                <ul id="repositoriesList" class="projects-list"></ul>
+                <p id="emptyState" class="empty-state" hidden>No repositories yet.</p>
+            </section>
+
+            <section class="panel accent">
+                <h2>Create New Repository</h2>
+                <p class="subtitle">Each repository must include at least one project, for example <code>server</code> and <code>client</code>.</p>
+                <form id="createRepositoryForm" class="form-stack">
+                    <label class="field">
+                        <span>Repository name</span>
+                        <input type="text" name="name" minlength="3" maxlength="50" pattern="^[A-Za-z0-9_-]+$" required>
+                    </label>
+                    <label class="field">
+                        <span>Description</span>
+                        <textarea name="description" rows="4" maxlength="400" placeholder="What is this repository about?"></textarea>
+                    </label>
+                    <label class="field">
+                        <span>Projects inside repository</span>
+                        <textarea name="project_names" rows="3" maxlength="300" placeholder="server, client" required></textarea>
+                    </label>
+                    <label class="field">
+                        <span>Visibility</span>
+                        <select name="visibility">
+                            <option value="private">Private</option>
+                            <option value="public">Public</option>
+                        </select>
+                    </label>
+                    <button class="btn primary invert" type="submit">Create repository</button>
+                    <p id="createRepositoryMsg" class="status-message" aria-live="polite"></p>
+                </form>
+            </section>
         </section>
 
         <section class="panel">
             <div class="panel-head">
-                <h2>Projects</h2>
-                <button id="logoutButton" class="btn ghost" type="button">Logout</button>
+                <h2>Your Public Profile</h2>
+                <span class="helper">This bio is visible on your public user page.</span>
             </div>
-            <ul id="projectsList" class="projects-list"></ul>
-            <p id="emptyState" class="empty-state" hidden>No projects yet.</p>
-        </section>
-
-        <section class="panel accent">
-            <h2>Create New Project</h2>
-            <p class="subtitle">This section is ready for the next backend step.</p>
-            <button class="btn primary" type="button" disabled>Create new project</button>
+            <div class="profile-layout">
+                <div id="profilePreview" class="profile-preview"></div>
+                <form id="profileForm" class="form-stack">
+                    <label class="field">
+                        <span>Display name</span>
+                        <input type="text" name="display_name" minlength="1" maxlength="50" required>
+                    </label>
+                    <label class="field">
+                        <span>Bio</span>
+                        <textarea name="bio" rows="4" maxlength="300" placeholder="Say a few words about what you build."></textarea>
+                    </label>
+                    <button class="btn ghost" type="submit">Save profile</button>
+                    <p id="profileMsg" class="status-message" aria-live="polite"></p>
+                </form>
+            </div>
         </section>
     </main>
 

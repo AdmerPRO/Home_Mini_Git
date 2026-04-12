@@ -7,8 +7,8 @@ import time
 
 import jwt
 
-from auth import SESSION_COOKIE_NAME
-from utils.file_manager_util import create_project
+from core.auth import SESSION_COOKIE_NAME
+from utils.repository_manager_util import create_repository
 
 
 def _register(client, username="testuser", password="Secret123", now_ms=None):
@@ -220,7 +220,7 @@ class TestLoginTimestamp:
 
 
 class TestSessionFlow:
-    def test_session_returns_authenticated_user_and_projects(self, client, now_ms):
+    def test_session_returns_authenticated_user_and_repositories(self, client, now_ms):
         _register(client, now_ms=now_ms)
         login_res = client.post(
             "/api/login",
@@ -240,9 +240,9 @@ class TestSessionFlow:
         assert session_res.status_code == 200
         assert body["authenticated"] is True
         assert body["nickname"] == "testuser"
-        assert body["projects"] == []
+        assert body["repositories"] == []
 
-    def test_session_returns_projects_for_authenticated_user(
+    def test_session_returns_repositories_for_authenticated_user(
         self, client, now_ms, tmp_path
     ):
         _register(client, now_ms=now_ms)
@@ -255,14 +255,24 @@ class TestSessionFlow:
             },
         )
 
-        create_project(tmp_path, "testuser", "alpha", private=True)
-        create_project(tmp_path, "testuser", "beta", private=False)
+        create_repository(
+            tmp_path, "testuser", "alpha", private=True, project_names=["server"]
+        )
+        create_repository(
+            tmp_path, "testuser", "beta", private=False, project_names=["client"]
+        )
 
         from api import session as session_module
 
-        original_get_user_projects = session_module.get_user_projects
-        session_module.get_user_projects = (
-            lambda _base, username: original_get_user_projects(tmp_path, username)
+        original_get_user_repository_names = session_module.get_user_repository_names
+        original_get_user_repositories = session_module.get_user_repositories
+        session_module.get_user_repository_names = (
+            lambda _base, username: original_get_user_repository_names(
+                tmp_path, username
+            )
+        )
+        session_module.get_user_repositories = (
+            lambda _base, username: original_get_user_repositories(tmp_path, username)
         )
         try:
             client.cookies.set(
@@ -270,12 +280,15 @@ class TestSessionFlow:
             )
             session_res = client.get("/api/session")
         finally:
-            session_module.get_user_projects = original_get_user_projects
+            session_module.get_user_repository_names = (
+                original_get_user_repository_names
+            )
+            session_module.get_user_repositories = original_get_user_repositories
 
         body = session_res.json()
         assert session_res.status_code == 200
         assert body["authenticated"] is True
-        assert body["projects"] == ["alpha", "beta"]
+        assert body["repositories"] == ["alpha", "beta"]
 
     def test_session_returns_unauthenticated_without_cookie(self, client):
         session_res = client.get("/api/session")
@@ -303,7 +316,7 @@ class TestSessionFlow:
             },
         )
 
-        from database import User
+        from core.database import User
 
         user = db_session.query(User).filter(User.username == "testuser").first()
         db_session.delete(user)

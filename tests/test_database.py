@@ -20,7 +20,7 @@ class TestUserModel:
         assert {"username", "password", "created_at"} <= cols
 
     def test_create_user(self, db_session):
-        from database import User
+        from core.database import User
 
         hashed = bcrypt.hashpw(b"Secret123", bcrypt.gensalt()).decode()
         user = User(
@@ -48,7 +48,7 @@ class TestUserModel:
     def test_duplicate_username_raises(self, db_session):
         from sqlalchemy.exc import IntegrityError
 
-        from database import User
+        from core.database import User
 
         ts = int(time.time() * 1000)
         hashed = bcrypt.hashpw(b"Secret123", bcrypt.gensalt()).decode()
@@ -62,7 +62,7 @@ class TestUserModel:
 
 class TestGetDb:
     def test_get_db_yields_session(self):
-        from database import get_db
+        from core.database import get_db
 
         gen = get_db()
         session = next(gen)

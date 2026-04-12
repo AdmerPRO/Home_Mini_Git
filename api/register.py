@@ -1,7 +1,5 @@
 import os
-import sys
 import time
-from pathlib import Path
 
 import bcrypt
 from dotenv import load_dotenv
@@ -9,9 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from database import User, get_db
-from logger import get_logger
-from utils.file_manager_util import add_user
+from core import app_paths
+from core.database import User, get_db
+from core.logger import get_logger
+from utils.repository_manager_util import add_user, setup_start
 
 load_dotenv()
 SALT_ROUNDS = int(os.getenv("BCRYPT_SALT_ROUNDS", 12))
@@ -19,7 +18,6 @@ TIMESTAMP_TOLERANCE_MS = 5000  # max 5 seconds difference
 
 router = APIRouter()
 logger = get_logger(__name__)
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class RegisterRequest(BaseModel):
@@ -61,11 +59,8 @@ async def register_user(
     db.refresh(user)
     logger.debug("User saved in database for user=%s", user.username)
 
-    # Tests use an isolated in-memory DB and should not create workspace folders.
-    if "pytest" in sys.modules:
-        logger.debug("Skipping user directory initialization during tests")
-    else:
-        add_user(PROJECT_ROOT, req.username)
+    setup_start(app_paths.DATA_ROOT)
+    add_user(app_paths.DATA_ROOT, req.username, joined_at=req.timestamp)
     logger.info("User registered successfully user=%s", req.username)
 
     return {"success": True, "message": f"User {req.username} registered"}

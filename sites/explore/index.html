@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explore - Home Mini Git</title>
+    <link rel="stylesheet" href="/explore-assets/style.css">
+</head>
+<body>
+    <main class="shell">
+        <header class="topbar">
+            <a class="brand" href="/">Home Mini Git</a>
+            <div class="actions">
+                <a class="btn ghost" href="/login">Login</a>
+                <a class="btn primary" href="/register">Register</a>
+            </div>
+        </header>
+
+        <section class="hero">
+            <p class="eyebrow">Discover</p>
+            <h1>Public repositories and builders worth exploring.</h1>
+            <p class="subtitle">
+                Browse the most viewed public repositories, open creator profiles,
+                and jump into details without leaving the app.
+            </p>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Popular Public Repositories</h2>
+                <a class="inline-link" href="/dashboard">Go to dashboard</a>
+            </div>
+            <div id="repositoriesGrid" class="grid"></div>
+            <p id="repositoriesEmpty" class="empty-state" hidden>No public repositories yet.</p>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Builders</h2>
+                <span class="helper">Open a profile to see only public repositories.</span>
+            </div>
+            <div id="usersGrid" class="grid users-grid"></div>
+            <p id="usersEmpty" class="empty-state" hidden>No builders found yet.</p>
+        </section>
+    </main>
+
+    <script src="/explore-assets/script.js"></script>
+</body>
+</html>

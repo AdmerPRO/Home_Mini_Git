@@ -9,12 +9,26 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from api import explore as exploreapi
 from api import login as loginapi
+from api import profiles as profilesapi
+from api import projects as projectsapi
 from api import register as registerapi
 from api import session as sessionapi
-from logger import configure_logging, get_logger
+from core import app_paths
+from core.logger import configure_logging, get_logger
 from pages import page_not_found_html
-from routes import dashboard, login, pagenotfound, register, root
+from routes import (
+    dashboard,
+    explore,
+    login,
+    pagenotfound,
+    project,
+    register,
+    root,
+    user_profile,
+)
+from utils.repository_manager_util import setup_start
 
 configure_logging()
 logger = get_logger(__name__)
@@ -23,9 +37,10 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from database import Base, engine
+    from core.database import Base, engine
 
     logger.info("Starting application")
+    setup_start(app_paths.DATA_ROOT)
     # Tests provide their own in-memory database and should not touch Database.db.
     if "pytest" in sys.modules:
         logger.debug("Skipping production database initialization during tests")
@@ -73,6 +88,21 @@ app.mount(
     StaticFiles(directory=os.path.join(BASE_DIR, "sites/dashboard")),
     name="dashboard_static",
 )
+app.mount(
+    "/explore-assets",
+    StaticFiles(directory=os.path.join(BASE_DIR, "sites/explore")),
+    name="explore_assets",
+)
+app.mount(
+    "/user-assets",
+    StaticFiles(directory=os.path.join(BASE_DIR, "sites/user")),
+    name="user_assets",
+)
+app.mount(
+    "/repository-assets",
+    StaticFiles(directory=os.path.join(BASE_DIR, "sites/project")),
+    name="repository_assets",
+)
 
 # ================================
 # Include routers
@@ -82,10 +112,16 @@ app.include_router(pagenotfound.router)
 app.include_router(register.router)
 app.include_router(login.router)
 app.include_router(dashboard.router)
+app.include_router(explore.router)
+app.include_router(user_profile.router)
+app.include_router(project.router)
 
 app.include_router(registerapi.router, prefix="/api", tags=["Register"])
 app.include_router(loginapi.router, prefix="/api", tags=["Login"])
 app.include_router(sessionapi.router, prefix="/api", tags=["Session"])
+app.include_router(projectsapi.router, prefix="/api", tags=["Repositories"])
+app.include_router(exploreapi.router, prefix="/api", tags=["Explore"])
+app.include_router(profilesapi.router, prefix="/api", tags=["Profiles"])
 
 
 @app.middleware("http")

@@ -11,5 +11,17 @@ Done so far:
 - Request validation with Pydantic
 - Timestamp validation for register/login requests
 - Duplicate user detection during registration
-- Automated tests for routes, database, register API, login API and utilities
+- Repository system where each repository contains one or more projects
+- Repository creation API at `/api/repositories`
+- Public explore view with repository cards and user profiles
+- Public repository pages and public user profile pages
+- Dashboard with repository creation, nested project names and public profile editing
+- File-based repository index stored in `user_projects/repositories_index.json`
+- Automated tests for routes, database, register API, login API, repository API and utilities
 - Logging with `INFO` by default and `DEBUG` when `DEBUG=true` in `server/.env`
+
+Repository model:
+- Repository example: `superloginsite`
+- Projects inside repository: `server`, `client`
+- Private repositories stay on the owner dashboard
+- Public repositories are visible in `/explore` and on user profile pages

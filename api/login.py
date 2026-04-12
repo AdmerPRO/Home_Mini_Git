@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from auth import create_access_token, set_session_cookie
-from database import User, get_db
-from logger import get_logger
+from core.auth import create_access_token, set_session_cookie
+from core.database import User, get_db
+from core.logger import get_logger
 
 TIMESTAMP_TOLERANCE_MS = 5500  # 5 s tolerance + ~500 ms buffer for processing delay
 

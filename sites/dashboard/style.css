@@ -33,6 +33,7 @@ body {
     gap: 24px;
 }
 
+.topbar,
 .hero,
 .panel {
     background: var(--surface);
@@ -41,6 +42,23 @@ body {
     border-radius: 24px;
     box-shadow: var(--shadow);
     padding: 28px;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.brand {
+    color: var(--accent-dark);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.brand:hover {
+    text-decoration: underline;
 }
 
 .hero {
@@ -56,7 +74,8 @@ body {
 }
 
 h1,
-h2 {
+h2,
+p {
     margin: 0;
 }
 
@@ -83,6 +102,12 @@ h2 {
     margin-bottom: 18px;
 }
 
+.layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+    gap: 24px;
+}
+
 .projects-list {
     list-style: none;
     margin: 0;
@@ -92,11 +117,107 @@ h2 {
 }
 
 .project-card {
-    padding: 16px 18px;
+    display: grid;
+    gap: 12px;
+    padding: 18px;
     border-radius: 18px;
     background: var(--surface-strong);
     border: 1px solid var(--line);
+}
+
+.project-link {
+    color: var(--text);
+    text-decoration: none;
     font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.project-link:hover {
+    text-decoration: underline;
+}
+
+.meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(31, 111, 92, 0.08);
+    color: var(--accent-dark);
+    font-size: 0.85rem;
+}
+
+.form-stack {
+    display: grid;
+    gap: 14px;
+}
+
+.field {
+    display: grid;
+    gap: 8px;
+    font-size: 0.95rem;
+}
+
+.field input,
+.field textarea,
+.field select {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    padding: 12px 14px;
+    font: inherit;
+    color: inherit;
+    background: rgba(255, 250, 243, 0.92);
+}
+
+.field textarea {
+    resize: vertical;
+    min-height: 108px;
+}
+
+.profile-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 20px;
+}
+
+.profile-preview {
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--surface-strong);
+    border: 1px solid var(--line);
+    display: grid;
+    gap: 14px;
+    align-content: start;
+}
+
+.profile-header {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+}
+
+.avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    display: grid;
+    place-items: center;
+    color: white;
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.status-message,
+.helper {
+    color: var(--muted);
+    min-height: 1.2em;
 }
 
 .empty-state {
@@ -109,8 +230,16 @@ h2 {
     color: #f5efe8;
 }
 
-.accent .subtitle {
-    color: rgba(245, 239, 232, 0.8);
+.accent .subtitle,
+.accent .status-message {
+    color: rgba(245, 239, 232, 0.82);
+}
+
+.accent .field input,
+.accent .field textarea,
+.accent .field select {
+    background: rgba(255, 250, 243, 0.92);
+    color: #1f1b16;
 }
 
 .btn {
@@ -129,7 +258,11 @@ h2 {
 .btn.primary {
     background: #f0dfbd;
     color: #1b160f;
-    cursor: not-allowed;
+}
+
+.btn.primary.invert {
+    background: #f0dfbd;
+    color: #1b160f;
 }
 
 .btn.ghost {
@@ -144,12 +277,19 @@ h2 {
         margin: 20px auto;
     }
 
+    .layout,
+    .profile-layout {
+        grid-template-columns: 1fr;
+    }
+
     .hero,
-    .panel {
+    .panel,
+    .topbar {
         padding: 22px;
         border-radius: 20px;
     }
 
+    .topbar,
     .panel-head {
         flex-direction: column;
         align-items: flex-start;
