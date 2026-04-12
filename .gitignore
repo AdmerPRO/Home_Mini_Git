@@ -206,10 +206,19 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# Database
+
 *.db
+
+# Archives
+
 *.zip
 *.rar
+*.gz
+
+# Important folders
 
 deployed_projects/
 user_tests/
 user_projects/
+logs/

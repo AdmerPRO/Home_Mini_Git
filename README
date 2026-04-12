@@ -12,3 +12,4 @@ Done so far:
 - Timestamp validation for register/login requests
 - Duplicate user detection during registration
 - Automated tests for routes, database, register API, login API and utilities
+- Logging with `INFO` by default and `DEBUG` when `DEBUG=true` in `server/.env`

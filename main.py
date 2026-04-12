@@ -1,4 +1,5 @@
 import os
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -11,9 +12,12 @@ from slowapi.util import get_remote_address
 from api import login as loginapi
 from api import register as registerapi
 from api import session as sessionapi
+from logger import configure_logging, get_logger
 from pages import page_not_found_html
 from routes import dashboard, login, pagenotfound, register, root
 
+configure_logging()
+logger = get_logger(__name__)
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 
@@ -21,8 +25,15 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[])
 async def lifespan(app: FastAPI):
     from database import Base, engine
 
-    Base.metadata.create_all(bind=engine)
+    logger.info("Starting application")
+    # Tests provide their own in-memory database and should not touch Database.db.
+    if "pytest" in sys.modules:
+        logger.debug("Skipping production database initialization during tests")
+    else:
+        Base.metadata.create_all(bind=engine)
+        logger.debug("Database tables ensured")
     yield
+    logger.info("Stopping application")
 
 
 app = FastAPI(lifespan=lifespan)
@@ -30,6 +41,7 @@ app.state.limiter = limiter
 
 
 async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.warning("Rate limit exceeded for %s %s", request.method, request.url.path)
     return JSONResponse({"detail": "Too many requests, slow down."}, status_code=429)
 
 
@@ -100,6 +112,7 @@ async def add_security_headers(request: Request, call_next):
 # ================================
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
+    logger.info("Route not found: %s %s", request.method, request.url.path)
     return HTMLResponse(content=page_not_found_html, status_code=404)
 
 
@@ -109,4 +122,10 @@ async def not_found_handler(request: Request, exc):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(
+        "main:app",
+        host="127.0.0.1",
+        port=8000,
+        reload=True,
+        reload_excludes=["logs/*"],
+    )

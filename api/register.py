@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from database import User, get_db
+from logger import get_logger
 from utils.file_manager_util import add_user
 
 load_dotenv()
@@ -16,6 +18,8 @@ SALT_ROUNDS = int(os.getenv("BCRYPT_SALT_ROUNDS", 12))
 TIMESTAMP_TOLERANCE_MS = 5000  # max 5 seconds difference
 
 router = APIRouter()
+logger = get_logger(__name__)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class RegisterRequest(BaseModel):
@@ -28,22 +32,40 @@ class RegisterRequest(BaseModel):
 async def register_user(
     request: Request, req: RegisterRequest, db: Session = Depends(get_db)
 ):
+    client_host = request.client.host if request.client else "unknown"
+    logger.info(
+        "Registration attempt for user=%s from ip=%s", req.username, client_host
+    )
+
     # Validate timestamp — max 5 seconds difference from server time
     server_time_ms = int(time.time() * 1000)
     if abs(server_time_ms - req.timestamp) > TIMESTAMP_TOLERANCE_MS:
+        logger.warning(
+            "Rejected registration for user=%s due to invalid timestamp", req.username
+        )
         raise HTTPException(status_code=400, detail="Request timestamp out of range")
 
     if db.query(User).filter(User.username == req.username).first():
+        logger.warning("Rejected registration for existing user=%s", req.username)
         raise HTTPException(status_code=400, detail="User already exists")
+
+    logger.debug("Registration payload validated for user=%s", req.username)
 
     salt = bcrypt.gensalt(rounds=SALT_ROUNDS)
     hashed_pw = bcrypt.hashpw(req.password.encode(), salt).decode()
+    logger.debug("Password hashed for user=%s", req.username)
 
     user = User(username=req.username, password=hashed_pw, created_at=req.timestamp)
     db.add(user)
     db.commit()
     db.refresh(user)
+    logger.debug("User saved in database for user=%s", user.username)
 
-    add_user(Path("../"), req.username)
+    # Tests use an isolated in-memory DB and should not create workspace folders.
+    if "pytest" in sys.modules:
+        logger.debug("Skipping user directory initialization during tests")
+    else:
+        add_user(PROJECT_ROOT, req.username)
+    logger.info("User registered successfully user=%s", req.username)
 
     return {"success": True, "message": f"User {req.username} registered"}
