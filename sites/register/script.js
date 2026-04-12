@@ -3,12 +3,20 @@ const errorMsg = document.getElementById("errorMsg");
 
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
-    const username = form.username.value;
+
+    const username = form.username.value.trim();
     const password = form.password.value;
     const timestamp = Date.now();
 
-    window.alert(username + password + timestamp); // debug
+    if (username.length < 3) {
+        errorMsg.textContent = "Username must have at least 3 characters";
+        return;
+    }
+
+    if (password.length < 6) {
+        errorMsg.textContent = "Password must have at least 6 characters";
+        return;
+    }
 
     try {
         const res = await fetch("/api/register", {
@@ -19,13 +27,17 @@ form.addEventListener("submit", async (e) => {
 
         const data = await res.json();
 
-        if(data.success){
+        if (res.ok && data.success) {
             window.location.href = "/dashboard";
         } else {
-            errorMsg.textContent = data.message || "Registration failed";
+            if (Array.isArray(data.detail)) {
+                errorMsg.textContent = data.detail.map((item) => item.msg).join(", ");
+            } else {
+                errorMsg.textContent = data.detail || data.message || "Registration failed";
+            }
         }
 
-    } catch(err){
+    } catch (err) {
         errorMsg.textContent = "Error connecting to server";
         console.error(err);
     }
