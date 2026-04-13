@@ -253,15 +253,13 @@ class TestSessionFlow:
 
         from api import session as session_module
 
-        original_get_user_repository_names = session_module.get_user_repository_names
-        original_get_user_repositories = session_module.get_user_repositories
-        session_module.get_user_repository_names = (
-            lambda _base, username: original_get_user_repository_names(
+        original_get_accessible_repositories = (
+            session_module.get_accessible_repositories
+        )
+        session_module.get_accessible_repositories = (
+            lambda _base, username: original_get_accessible_repositories(
                 tmp_path, username
             )
-        )
-        session_module.get_user_repositories = (
-            lambda _base, username: original_get_user_repositories(tmp_path, username)
         )
         try:
             client.cookies.set(
@@ -269,10 +267,9 @@ class TestSessionFlow:
             )
             session_res = client.get("/api/session")
         finally:
-            session_module.get_user_repository_names = (
-                original_get_user_repository_names
+            session_module.get_accessible_repositories = (
+                original_get_accessible_repositories
             )
-            session_module.get_user_repositories = original_get_user_repositories
 
         body = session_res.json()
         assert session_res.status_code == 200

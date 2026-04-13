@@ -8,12 +8,14 @@ function avatarColor(seed) {
 }
 
 function initials(label) {
-    return label
-        .split(/[\s_-]+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase() ?? "")
-        .join("") || "?";
+    return (
+        label
+            .split(/[\s_-]+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase() ?? "")
+            .join("") || "?"
+    );
 }
 
 function createAvatar(label, avatarImage = "") {
@@ -46,6 +48,7 @@ const state = {
     viewerCanEdit: false,
     currentProject: "",
     currentFilePath: "",
+    currentFiles: [],
 };
 
 function formatBytes(bytes) {
@@ -129,18 +132,136 @@ function renderProjectTabs(projects) {
         button.addEventListener("click", async () => {
             state.currentProject = project.name;
             state.currentFilePath = "";
-            renderProjectTabs(state.repository.projects);
+            renderProjectTabs(state.repository.projects || []);
             await loadProjectFiles();
         });
         projectTabs.appendChild(button);
     }
 }
 
-async function loadProjectFiles() {
-    const fileList = document.getElementById("fileList");
-    fileList.innerHTML = "";
+function buildFileTree(files) {
+    const root = [];
+    for (const file of files) {
+        const parts = file.path.split("/");
+        let level = root;
+        for (let index = 0; index < parts.length; index += 1) {
+            const part = parts[index];
+            const isFile = index === parts.length - 1;
+            let node = level.find((item) => item.name === part);
+            if (!node) {
+                node = {
+                    type: isFile ? "file" : "folder",
+                    name: part,
+                    path: parts.slice(0, index + 1).join("/"),
+                    children: [],
+                };
+                level.push(node);
+            }
+            if (!isFile) {
+                level = node.children;
+            }
+        }
+    }
+    return root;
+}
 
+function renderTreeNodes(container, nodes, depth = 0) {
+    const sortedNodes = [...nodes].sort((left, right) => {
+        if (left.type !== right.type) {
+            return left.type === "folder" ? -1 : 1;
+        }
+        return left.name.localeCompare(right.name);
+    });
+
+    for (const node of sortedNodes) {
+        if (node.type === "folder") {
+            const group = document.createElement("div");
+            group.className = "tree-folder";
+
+            const folder = document.createElement("div");
+            folder.className = "tree-node";
+            folder.style.paddingLeft = `${14 + depth * 18}px`;
+
+            const icon = document.createElement("span");
+            icon.className = "tree-icon";
+            icon.textContent = "▾";
+
+            const label = document.createElement("span");
+            label.className = "tree-label";
+            label.textContent = node.name;
+
+            folder.append(icon, label);
+
+            const children = document.createElement("div");
+            children.className = "tree-folder-children";
+            renderTreeNodes(children, node.children, depth + 1);
+
+            group.append(folder, children);
+            container.appendChild(group);
+            continue;
+        }
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tree-node";
+        if (node.path === state.currentFilePath) {
+            button.classList.add("tree-node-active");
+        }
+        button.style.paddingLeft = `${14 + depth * 18}px`;
+
+        const icon = document.createElement("span");
+        icon.className = "tree-icon";
+        icon.textContent = "•";
+
+        const label = document.createElement("span");
+        label.className = "tree-label";
+        label.textContent = node.name;
+
+        button.append(icon, label);
+        button.addEventListener("click", async () => {
+            state.currentFilePath = node.path;
+            await loadFile(node.path);
+            renderFileTree(state.currentFiles);
+        });
+        container.appendChild(button);
+    }
+}
+
+function renderFileTree(files) {
+    const fileList = document.getElementById("fileList");
+    const treeSummary = document.getElementById("treeSummary");
+    fileList.innerHTML = "";
+    state.currentFiles = files;
+    treeSummary.textContent = `${files.length} file${files.length === 1 ? "" : "s"}`;
+    renderTreeNodes(fileList, buildFileTree(files));
+}
+
+function syncPreview() {
+    const fileEditor = document.getElementById("fileEditor");
+    const filePreview = document.getElementById("filePreview");
+    filePreview.textContent = fileEditor.value || "Empty file";
+}
+
+function updateUploadSelectionSummary() {
+    const uploadForm = document.getElementById("uploadForm");
+    const uploadSelection = document.getElementById("uploadSelection");
+    const normalFiles = Array.from(uploadForm.elements.upload_files.files || []);
+    const folderFiles = Array.from(uploadForm.elements.upload_folder.files || []);
+    const selected = [...normalFiles, ...folderFiles];
+
+    if (!selected.length) {
+        uploadSelection.textContent = "Nothing selected yet.";
+        return;
+    }
+
+    const names = selected.slice(0, 5).map((file) => file.webkitRelativePath || file.name);
+    const suffix = selected.length > 5 ? ` and ${selected.length - 5} more` : "";
+    uploadSelection.textContent = names.join(", ") + suffix;
+}
+
+async function loadProjectFiles() {
     if (!state.currentProject) {
+        renderFileTree([]);
         return;
     }
 
@@ -148,37 +269,29 @@ async function loadProjectFiles() {
         `/api/repositories/${encodeURIComponent(state.owner)}/${encodeURIComponent(state.repositoryName)}/projects/${encodeURIComponent(state.currentProject)}/files`
     );
     if (!response.ok) {
+        renderFileTree([]);
         return;
     }
 
-    for (const file of data.files || []) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "file-button";
-        if (file.path === state.currentFilePath) {
-            button.classList.add("file-button-active");
-        }
-        button.textContent = file.path;
-        button.addEventListener("click", async () => {
-            state.currentFilePath = file.path;
-            await loadFile(file.path);
-            await loadProjectFiles();
-        });
-        fileList.appendChild(button);
-    }
+    renderFileTree(data.files || []);
 
     if (!state.currentFilePath && (data.files || []).length > 0) {
         const readme = data.files.find((file) => file.is_readme) || data.files[0];
         state.currentFilePath = readme.path;
+    }
+
+    if (state.currentFilePath) {
         await loadFile(state.currentFilePath);
-        await loadProjectFiles();
+        renderFileTree(data.files || []);
     }
 }
 
 async function loadFile(path) {
     const fileEditor = document.getElementById("fileEditor");
+    const filePreview = document.getElementById("filePreview");
     const editorTitle = document.getElementById("editorTitle");
     const editorMeta = document.getElementById("editorMeta");
+    const editorPath = document.getElementById("editorPath");
     const saveFileButton = document.getElementById("saveFileButton");
 
     const query = encodeURIComponent(path);
@@ -187,14 +300,18 @@ async function loadFile(path) {
     );
     if (!response.ok) {
         fileEditor.value = "";
+        filePreview.textContent = "Could not load file.";
         editorTitle.textContent = "Could not load file";
         editorMeta.textContent = response.status === 404 ? "Missing file" : "Error";
+        editorPath.textContent = path;
         return;
     }
 
     fileEditor.value = data.content || "";
+    syncPreview();
     editorTitle.textContent = data.path;
     editorMeta.textContent = `${formatBytes(data.size)} · ${state.currentProject}`;
+    editorPath.textContent = `${state.currentProject} / ${data.path}`;
     fileEditor.readOnly = !state.viewerCanEdit;
     saveFileButton.hidden = !state.viewerCanEdit;
 }
@@ -265,6 +382,8 @@ async function loadProject() {
 
     const ownerProfileLink = document.getElementById("ownerProfileLink");
     ownerProfileLink.href = `/users/${encodeURIComponent(ownerProfile.username)}`;
+    document.getElementById("downloadZipLink").href =
+        `/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repositoryName)}/archive.zip`;
 
     const ownerCard = document.getElementById("ownerCard");
     ownerCard.innerHTML = "";
@@ -328,6 +447,10 @@ document.getElementById("saveFileButton").addEventListener("click", async () => 
     await loadProjectFiles();
 });
 
+document.getElementById("fileEditor").addEventListener("input", () => {
+    syncPreview();
+});
+
 document.getElementById("addFileForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const fileMsg = document.getElementById("fileMsg");
@@ -384,6 +507,13 @@ document.getElementById("addProjectForm").addEventListener("submit", async (even
     await loadProjectFiles();
 });
 
+document
+    .querySelector('input[name="upload_files"]')
+    .addEventListener("change", updateUploadSelectionSummary);
+document
+    .querySelector('input[name="upload_folder"]')
+    .addEventListener("change", updateUploadSelectionSummary);
+
 document.getElementById("uploadForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const uploadMsg = document.getElementById("uploadMsg");
@@ -417,6 +547,7 @@ document.getElementById("uploadForm").addEventListener("submit", async (event) =
     }
 
     event.currentTarget.reset();
+    updateUploadSelectionSummary();
     uploadMsg.textContent = `${data.files.length} files uploaded.`;
     await loadLanguageStats();
     await loadProjectFiles();

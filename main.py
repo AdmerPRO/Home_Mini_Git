@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 
 from api import explore as exploreapi
 from api import login as loginapi
+from api import messages as messagesapi
 from api import profiles as profilesapi
 from api import projects as projectsapi
 from api import register as registerapi
@@ -120,6 +121,7 @@ app.include_router(sessionapi.router, prefix="/api", tags=["Session"])
 app.include_router(projectsapi.router, prefix="/api", tags=["Repositories"])
 app.include_router(exploreapi.router, prefix="/api", tags=["Explore"])
 app.include_router(profilesapi.router, prefix="/api", tags=["Profiles"])
+app.include_router(messagesapi.router, prefix="/api", tags=["Messages"])
 
 
 @app.middleware("http")

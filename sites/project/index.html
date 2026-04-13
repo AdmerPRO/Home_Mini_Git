@@ -10,7 +10,10 @@
     <main class="shell">
         <header class="topbar">
             <a class="brand" href="/explore">Back to explore</a>
-            <a class="btn ghost" id="ownerProfileLink" href="/explore">Owner profile</a>
+            <div class="topbar-actions">
+                <a class="btn ghost" id="downloadZipLink" href="#">Download ZIP</a>
+                <a class="btn ghost" id="ownerProfileLink" href="/explore">Owner profile</a>
+            </div>
         </header>
 
         <section class="hero">
@@ -29,12 +32,105 @@
 
         <section class="panel">
             <div class="panel-head">
+                <h2>Language Mix</h2>
+                <span id="languageSummary" class="badge">0 bytes</span>
+            </div>
+            <div id="languageStats" class="language-list"></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Project Workspace</h2>
+                <span id="workspaceMode" class="badge">Read only</span>
+            </div>
+            <div class="workspace-grid">
+                <div class="workspace-column">
+                    <div class="panel-head compact">
+                        <h3>Project picker</h3>
+                    </div>
+                    <div id="projectTabs" class="tab-list"></div>
+                    <form id="addProjectForm" class="form-stack" hidden>
+                        <label class="field">
+                            <span>New project name</span>
+                            <input type="text" name="name" minlength="1" maxlength="50" pattern="^[A-Za-z0-9_-]+$" required>
+                        </label>
+                        <label class="field">
+                            <span>Description</span>
+                            <textarea name="description" rows="3" maxlength="300"></textarea>
+                        </label>
+                        <button class="btn ghost" type="submit">Add project</button>
+                        <p id="projectMsg" class="status-message" aria-live="polite"></p>
+                    </form>
+                </div>
+
+                <div class="workspace-column">
+                    <div class="panel-head compact">
+                        <h3>Files</h3>
+                        <span id="treeSummary" class="badge">0 files</span>
+                    </div>
+                    <div class="tree-shell">
+                        <div id="fileList" class="file-tree"></div>
+                    </div>
+                    <form id="uploadForm" class="form-stack" hidden>
+                        <div class="upload-grid">
+                            <label class="upload-card">
+                                <input type="file" name="upload_files" multiple>
+                                <span class="upload-kicker">Files</span>
+                                <strong>Choose files</strong>
+                                <small>Add one or many files to this project.</small>
+                            </label>
+                            <label class="upload-card">
+                                <input type="file" name="upload_folder" multiple webkitdirectory directory>
+                                <span class="upload-kicker">Folder</span>
+                                <strong>Choose a folder</strong>
+                                <small>Keep folder structure during upload.</small>
+                            </label>
+                        </div>
+                        <div id="uploadSelection" class="upload-selection">Nothing selected yet.</div>
+                        <button class="btn ghost" type="submit">Upload selection</button>
+                        <p id="uploadMsg" class="status-message" aria-live="polite"></p>
+                    </form>
+                    <form id="addFileForm" class="form-stack" hidden>
+                        <label class="field">
+                            <span>New file path</span>
+                            <input type="text" name="path" minlength="1" maxlength="200" placeholder="src/app.py" required>
+                        </label>
+                        <button class="btn ghost" type="submit">Create file</button>
+                        <p id="fileMsg" class="status-message" aria-live="polite"></p>
+                    </form>
+                </div>
+
+                <div class="workspace-column workspace-editor">
+                    <div class="panel-head compact">
+                        <h3 id="editorTitle">Select a file</h3>
+                        <span id="editorMeta" class="badge">No file loaded</span>
+                    </div>
+                    <div id="editorPath" class="path-bar">No file selected</div>
+                    <pre id="filePreview" class="file-preview">Choose a file to inspect or edit.</pre>
+                    <textarea id="fileEditor" class="editor" spellcheck="false" placeholder="Choose a file to inspect or edit." readonly></textarea>
+                    <div class="meta-row">
+                        <button id="saveFileButton" class="btn ghost" type="button" hidden>Save file</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
                 <h2>Owner</h2>
             </div>
             <div id="ownerCard" class="owner-card"></div>
+            <form id="inviteContributorForm" class="form-stack" hidden>
+                <label class="field">
+                    <span>Invite contributor</span>
+                    <input type="text" name="username" minlength="3" maxlength="50" pattern="^[A-Za-z0-9_]+$" placeholder="username" required>
+                </label>
+                <button class="btn ghost" type="submit">Send invite</button>
+                <p id="inviteMsg" class="status-message" aria-live="polite"></p>
+            </form>
         </section>
     </main>
 
-    <script src="/repository-assets/script.js"></script>
+    <script src="/repository-assets/script-v2.js?v=3"></script>
 </body>
 </html>

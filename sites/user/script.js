@@ -16,7 +16,14 @@ function initials(label) {
         .join("") || "?";
 }
 
-function createAvatar(label) {
+function createAvatar(label, avatarImage = "") {
+    if (avatarImage) {
+        const image = document.createElement("img");
+        image.className = "avatar avatar-image";
+        image.src = avatarImage;
+        image.alt = label;
+        return image;
+    }
     const avatar = document.createElement("div");
     avatar.className = "avatar";
     avatar.style.background = avatarColor(label);
@@ -38,7 +45,10 @@ function renderProfile(profile) {
     profileHeader.innerHTML = "";
     profileMeta.innerHTML = "";
 
-    const avatar = createAvatar(profile.display_name || profile.username);
+    const avatar = createAvatar(
+        profile.display_name || profile.username,
+        profile.avatar_image
+    );
     const identity = document.createElement("div");
     identity.className = "identity";
 

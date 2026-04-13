@@ -71,6 +71,15 @@
                         <input type="text" name="display_name" minlength="1" maxlength="50" required>
                     </label>
                     <label class="field">
+                        <span>Profile photo</span>
+                        <input
+                            class="file-input"
+                            type="file"
+                            name="avatar_file"
+                            accept="image/png,image/jpeg,image/webp,image/gif"
+                        >
+                    </label>
+                    <label class="field">
                         <span>Bio</span>
                         <textarea name="bio" rows="4" maxlength="300" placeholder="Say a few words about what you build."></textarea>
                     </label>
@@ -78,6 +87,47 @@
                     <p id="profileMsg" class="status-message" aria-live="polite"></p>
                 </form>
             </div>
+        </section>
+
+        <section class="layout">
+            <section class="panel accent">
+                <h2>Developer Mail</h2>
+                <p class="subtitle">Send short private notes to other builders on the platform.</p>
+                <form id="messageForm" class="form-stack">
+                    <label class="field">
+                        <span>To</span>
+                        <input type="text" name="recipient" minlength="3" maxlength="50" pattern="^[A-Za-z0-9_]+$" required>
+                    </label>
+                    <label class="field">
+                        <span>Subject</span>
+                        <input type="text" name="subject" maxlength="120" placeholder="Quick question about your repo">
+                    </label>
+                    <label class="field">
+                        <span>Message</span>
+                        <textarea name="content" rows="5" maxlength="5000" placeholder="Write your message here." required></textarea>
+                    </label>
+                    <button class="btn primary invert" type="submit">Send message</button>
+                    <p id="messageMsg" class="status-message" aria-live="polite"></p>
+                </form>
+            </section>
+
+            <section class="panel">
+                <div class="panel-head">
+                    <h2>Inbox</h2>
+                    <span id="messageCount" class="pill">0 messages</span>
+                </div>
+                <div id="messagesList" class="mail-list"></div>
+                <p id="messagesEmpty" class="empty-state" hidden>No messages yet.</p>
+            </section>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Contributor Invites</h2>
+                <span id="inviteCount" class="pill">0 invites</span>
+            </div>
+            <div id="invitesList" class="mail-list"></div>
+            <p id="invitesEmpty" class="empty-state" hidden>No pending invites.</p>
         </section>
     </main>
 

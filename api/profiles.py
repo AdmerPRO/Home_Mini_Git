@@ -23,11 +23,29 @@ logger = get_logger(__name__)
 class UpdateProfileRequest(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=50)
     bio: str = Field("", max_length=300)
+    avatar_image: str = Field("", max_length=300_000)
 
     @field_validator("display_name", "bio")
     @classmethod
     def sanitize_text(cls, value: str) -> str:
-        return html.escape(value.strip())
+        return html.escape(value.strip(), quote=False)
+
+    @field_validator("avatar_image")
+    @classmethod
+    def validate_avatar_image(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            return ""
+        allowed_prefixes = (
+            "data:image/png;base64,",
+            "data:image/jpeg;base64,",
+            "data:image/jpg;base64,",
+            "data:image/webp;base64,",
+            "data:image/gif;base64,",
+        )
+        if not normalized.startswith(allowed_prefixes):
+            raise ValueError("Avatar must be a base64 data image")
+        return normalized
 
 
 @router.patch("/profile")
@@ -44,7 +62,11 @@ async def patch_profile(
 
     setup_start(app_paths.DATA_ROOT)
     profile = update_user_profile(
-        app_paths.DATA_ROOT, username, display_name=req.display_name, bio=req.bio
+        app_paths.DATA_ROOT,
+        username,
+        display_name=req.display_name,
+        bio=req.bio,
+        avatar_image=req.avatar_image,
     )
     logger.info("Profile updated for user_hash=%s", hash_identifier(username))
     return {"success": True, "profile": profile}

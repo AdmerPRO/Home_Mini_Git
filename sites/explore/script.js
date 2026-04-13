@@ -31,6 +31,35 @@ function badge(text) {
     return element;
 }
 
+function renderTopbarActions(session) {
+    const actions = document.getElementById("topbarActions");
+    if (!actions) {
+        return;
+    }
+
+    actions.innerHTML = "";
+    if (session?.authenticated) {
+        const back = document.createElement("a");
+        back.className = "btn ghost";
+        back.href = "/dashboard";
+        back.textContent = "Back to profile";
+        actions.appendChild(back);
+        return;
+    }
+
+    const login = document.createElement("a");
+    login.className = "btn ghost";
+    login.href = "/login";
+    login.textContent = "Login";
+
+    const register = document.createElement("a");
+    register.className = "btn primary";
+    register.href = "/register";
+    register.textContent = "Register";
+
+    actions.append(login, register);
+}
+
 function renderRepositories(repositories) {
     const repositoriesGrid = document.getElementById("repositoriesGrid");
     const repositoriesEmpty = document.getElementById("repositoriesEmpty");
@@ -125,6 +154,13 @@ function renderUsers(users) {
 }
 
 async function loadExplore() {
+    const sessionResponse = await fetch("/api/session", {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+    });
+    const sessionData = await sessionResponse.json();
+    renderTopbarActions(sessionData);
+
     const response = await fetch("/api/explore", {
         headers: { Accept: "application/json" },
         credentials: "same-origin",

@@ -11,9 +11,8 @@ from core.auth import (
 )
 from core.database import User, get_db
 from utils.repository_manager_util import (
+    get_accessible_repositories,
     get_user_profile,
-    get_user_repositories,
-    get_user_repository_names,
 )
 
 router = APIRouter()
@@ -35,13 +34,13 @@ async def get_session(
         response.headers["Cache-Control"] = "no-store"
         return {"authenticated": False}
 
-    repository_cards = get_user_repositories(app_paths.DATA_ROOT, username)
+    repository_cards = get_accessible_repositories(app_paths.DATA_ROOT, username)
     profile = get_user_profile(app_paths.DATA_ROOT, username)
     response.headers["Cache-Control"] = "no-store"
     return {
         "authenticated": True,
         "nickname": username,
-        "repositories": get_user_repository_names(app_paths.DATA_ROOT, username),
+        "repositories": sorted(item["repository_name"] for item in repository_cards),
         "repository_cards": repository_cards,
         "profile": profile,
     }

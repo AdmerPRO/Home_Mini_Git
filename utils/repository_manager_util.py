@@ -166,6 +166,7 @@ def _default_profile(username: str, joined_at: int | None = None) -> dict:
         "username": username,
         "display_name": username,
         "bio": DEFAULT_USER_BIO,
+        "avatar_image": "",
         "joined_at": joined_at if joined_at is not None else _now_ms(),
     }
 
@@ -210,6 +211,7 @@ def _read_repository_settings(
             "repository_name": repository_name,
             "private": bool(settings.get("private", True)),
             "contributors": settings.get("contributors", [username]),
+            "pending_invites": settings.get("pending_invites", []),
             "description": str(
                 settings.get("description", DEFAULT_REPOSITORY_DESCRIPTION)
             ).strip()
@@ -298,6 +300,7 @@ def _repository_metadata(
         "description": str(settings.get("description", DEFAULT_REPOSITORY_DESCRIPTION)),
         "contributors": contributors,
         "contributors_count": len(contributors),
+        "pending_invites": list(settings.get("pending_invites", [])),
         "created_at": int(settings.get("created_at", _now_ms())),
         "updated_at": int(settings.get("updated_at", _now_ms())),
         "views": int(settings.get("views", 0)),
@@ -346,6 +349,7 @@ def _ensure_user_profile(
         profile.setdefault("username", username)
         profile.setdefault("display_name", username)
         profile.setdefault("bio", DEFAULT_USER_BIO)
+        profile.setdefault("avatar_image", "")
         profile.setdefault(
             "joined_at", joined_at if joined_at is not None else _now_ms()
         )
@@ -385,6 +389,7 @@ def create_repository(
         "repository_name": repository_name,
         "private": private,
         "contributors": [username],
+        "pending_invites": [],
         "description": (description or DEFAULT_REPOSITORY_DESCRIPTION).strip()
         or DEFAULT_REPOSITORY_DESCRIPTION,
         "projects": normalized_projects,
@@ -439,10 +444,110 @@ def add_contributor(base_path: Path, username, repository_name, owner):
     contributors = settings.setdefault("contributors", [])
     if username not in contributors:
         contributors.append(username)
+    invites = settings.setdefault("pending_invites", [])
+    if username in invites:
+        invites.remove(username)
     settings["updated_at"] = _now_ms()
     _write_repository_settings(base_path, owner, repository_name, settings)
     _register_repository_in_index(base_path, owner, repository_name)
     return True
+
+
+def is_repository_contributor(
+    base_path: Path, username: str, repository_name: str, owner: str
+) -> bool:
+    if not _is_safe_username(str(username).strip()):
+        return False
+    settings = _read_repository_settings(base_path, owner, repository_name)
+    if not settings:
+        return False
+    contributors = settings.get("contributors", [])
+    return username == owner or username in contributors
+
+
+def invite_contributor(
+    base_path: Path, owner: str, repository_name: str, username: str
+):
+    owner = _require_safe_username(owner)
+    username = _require_safe_username(username)
+    repository_name = _require_safe_repository_name(repository_name)
+    settings = _read_repository_settings(base_path, owner, repository_name)
+    if not settings:
+        raise ValueError("Repository not found")
+
+    contributors = settings.setdefault("contributors", [owner])
+    if username in contributors:
+        raise ValueError("User is already a contributor")
+
+    invites = settings.setdefault("pending_invites", [])
+    if username in invites:
+        raise ValueError("Invitation already exists")
+
+    invites.append(username)
+    settings["updated_at"] = _now_ms()
+    _write_repository_settings(base_path, owner, repository_name, settings)
+    _register_repository_in_index(base_path, owner, repository_name)
+    return True
+
+
+def accept_contributor_invite(
+    base_path: Path, username: str, owner: str, repository_name: str
+) -> bool:
+    owner = _require_safe_username(owner)
+    username = _require_safe_username(username)
+    repository_name = _require_safe_repository_name(repository_name)
+    settings = _read_repository_settings(base_path, owner, repository_name)
+    if not settings:
+        raise ValueError("Repository not found")
+
+    invites = settings.setdefault("pending_invites", [])
+    if username not in invites:
+        raise ValueError("Invitation not found")
+
+    invites.remove(username)
+    contributors = settings.setdefault("contributors", [owner])
+    if username not in contributors:
+        contributors.append(username)
+    settings["updated_at"] = _now_ms()
+    _write_repository_settings(base_path, owner, repository_name, settings)
+    _register_repository_in_index(base_path, owner, repository_name)
+    return True
+
+
+def get_pending_repository_invites(base_path: Path, username: str) -> list[dict]:
+    username = _require_safe_username(username)
+    data = _load_index(base_path)
+    invites = []
+
+    for repository_key, metadata in data["repositories"].items():
+        if not isinstance(metadata, dict):
+            continue
+        owner = metadata.get("owner")
+        repository_name = metadata.get("repository_name")
+        if not owner or not repository_name:
+            continue
+
+        settings = _read_repository_settings(base_path, owner, repository_name)
+        if not settings:
+            continue
+        if username not in settings.get("pending_invites", []):
+            continue
+
+        invites.append(
+            {
+                "owner": owner,
+                "repository_name": repository_name,
+                "description": str(
+                    settings.get("description", DEFAULT_REPOSITORY_DESCRIPTION)
+                ),
+                "created_at": int(settings.get("created_at", _now_ms())),
+            }
+        )
+
+    invites.sort(
+        key=lambda item: (-item["created_at"], item["repository_name"].lower())
+    )
+    return invites
 
 
 def get_user_repository_names(base_path: Path, username: str) -> list[str]:
@@ -463,6 +568,40 @@ def get_user_repositories(
         if public_only and metadata["private"]:
             continue
         repositories.append(metadata)
+
+    return sorted(
+        repositories,
+        key=lambda item: (-item["updated_at"], item["repository_name"].lower()),
+    )
+
+
+def get_accessible_repositories(base_path: Path, username: str) -> list[dict]:
+    if not _is_safe_username(str(username).strip()):
+        return []
+
+    data = _load_index(base_path)
+    repositories = []
+    seen = set()
+    for repository_key, metadata in data["repositories"].items():
+        if not isinstance(metadata, dict):
+            continue
+        owner = metadata.get("owner")
+        repository_name = metadata.get("repository_name")
+        if not owner or not repository_name:
+            continue
+
+        current_metadata = _repository_metadata(base_path, owner, repository_name)
+        if not current_metadata:
+            continue
+        if username != owner and username not in current_metadata.get(
+            "contributors", []
+        ):
+            continue
+        key = (owner, repository_name)
+        if key in seen:
+            continue
+        seen.add(key)
+        repositories.append(current_metadata)
 
     return sorted(
         repositories,
@@ -540,6 +679,7 @@ def get_user_profile(base_path: Path, username: str) -> dict | None:
         "username": username,
         "display_name": str(profile.get("display_name", username)),
         "bio": str(profile.get("bio", DEFAULT_USER_BIO)),
+        "avatar_image": str(profile.get("avatar_image", "")),
         "joined_at": int(profile.get("joined_at", _now_ms())),
         "public_repository_count": len(public_repositories),
         "public_project_total": sum(
@@ -554,6 +694,7 @@ def update_user_profile(
     username: str,
     display_name: str | None = None,
     bio: str | None = None,
+    avatar_image: str | None = None,
 ) -> dict:
     username = _require_safe_username(username)
     data = _load_index(base_path)
@@ -565,6 +706,8 @@ def update_user_profile(
         current["display_name"] = display_name.strip() or username
     if bio is not None:
         current["bio"] = bio.strip() or DEFAULT_USER_BIO
+    if avatar_image is not None:
+        current["avatar_image"] = avatar_image.strip()
 
     current.setdefault("joined_at", _now_ms())
     data["profiles"][username] = current
@@ -573,6 +716,19 @@ def update_user_profile(
     if profile is None:
         raise ValueError("Profile could not be updated")
     return profile
+
+
+def touch_repository(base_path: Path, username: str, repository_name: str) -> bool:
+    username = _require_safe_username(username)
+    repository_name = _require_safe_repository_name(repository_name)
+    settings = _read_repository_settings(base_path, username, repository_name)
+    if not settings:
+        raise ValueError("Repository not found")
+
+    settings["updated_at"] = _now_ms()
+    _write_repository_settings(base_path, username, repository_name, settings)
+    _register_repository_in_index(base_path, username, repository_name)
+    return True
 
 
 def get_public_user_cards(

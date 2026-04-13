@@ -1,3 +1,6 @@
+import io
+import zipfile
+
 from utils.repository_manager_util import (
     add_user,
     create_repository,
@@ -16,7 +19,7 @@ def _register_and_login(client, username: str, password: str, now_ms: int) -> No
             "timestamp": now_ms,
         },
     )
-    assert register_res.status_code == 200
+    assert register_res.status_code in {200, 400}
 
     login_res = client.post(
         "/api/login",
@@ -88,6 +91,270 @@ class TestRepositoryCreation:
         body = res.json()
         assert body["profile"]["display_name"] == "&lt;b&gt;Maker&lt;/b&gt;"
         assert body["profile"]["bio"] == "&lt;script&gt;alert(1)&lt;/script&gt;"
+
+    def test_profile_update_keeps_apostrophes(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+
+        res = client.patch(
+            "/api/profile",
+            json={
+                "display_name": "Maker's Prime",
+                "bio": "I'm building tools for devs.",
+                "avatar_image": "",
+            },
+        )
+
+        assert res.status_code == 200
+        body = res.json()
+        assert body["profile"]["display_name"] == "Maker's Prime"
+        assert body["profile"]["bio"] == "I'm building tools for devs."
+
+    def test_profile_update_stores_avatar(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+
+        res = client.patch(
+            "/api/profile",
+            json={
+                "display_name": "Maker Prime",
+                "bio": "Builds testable things.",
+                "avatar_image": "data:image/png;base64,ZmFrZQ==",
+            },
+        )
+
+        assert res.status_code == 200
+        body = res.json()
+        assert body["profile"]["avatar_image"] == "data:image/png;base64,ZmFrZQ=="
+
+    def test_add_project_file_and_read_it_back(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+
+        save_res = client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={
+                "path": "src/app.py",
+                "content": "print('hello')\n",
+            },
+        )
+        assert save_res.status_code == 200
+        assert save_res.json()["file"]["path"] == "src/app.py"
+
+        list_res = client.get(
+            "/api/repositories/maker/alpha_build/projects/server/files"
+        )
+        assert list_res.status_code == 200
+        paths = [item["path"] for item in list_res.json()["files"]]
+        assert "src/app.py" in paths
+        assert "README.md" in paths
+
+        read_res = client.get(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            params={"path": "src/app.py"},
+        )
+        assert read_res.status_code == 200
+        assert read_res.json()["content"] == "print('hello')\n"
+
+    def test_add_project_and_language_stats(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+
+        add_project_res = client.post(
+            "/api/repositories/maker/alpha_build/projects",
+            json={"name": "client", "description": "Frontend app"},
+        )
+        assert add_project_res.status_code == 200
+        assert "client" in add_project_res.json()["repository"]["project_names"]
+
+        client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={"path": "src/app.py", "content": "print('hello')\n"},
+        )
+        client.put(
+            "/api/repositories/maker/alpha_build/projects/client/file",
+            json={"path": "styles/site.css", "content": "body { color: red; }\n"},
+        )
+        client.put(
+            "/api/repositories/maker/alpha_build/projects/client/file",
+            json={"path": "index.html", "content": "<!doctype html><html></html>\n"},
+        )
+
+        stats_res = client.get("/api/repositories/maker/alpha_build/languages")
+        assert stats_res.status_code == 200
+        languages = [item["language"] for item in stats_res.json()["languages"]]
+        assert "Python" in languages
+        assert "CSS" in languages
+        assert "HTML" in languages
+
+    def test_only_contributors_can_edit_repository(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "private",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+        client.post("/api/logout")
+        _register_and_login(client, "outsider", "Secret123", now_ms)
+
+        update_res = client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={"path": "src/app.py", "content": "print('hello')\n"},
+        )
+        assert update_res.status_code == 403
+
+    def test_owner_can_invite_contributor_and_contributor_can_edit(
+        self, client, now_ms
+    ):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "private",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+        client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={"path": "src/app.py", "content": "print('owner')\n"},
+        )
+        client.post("/api/logout")
+        _register_and_login(client, "helper", "Secret123", now_ms)
+        client.post("/api/logout")
+        _register_and_login(client, "maker", "Secret123", now_ms)
+
+        invite_res = client.post(
+            "/api/repositories/maker/alpha_build/invite",
+            json={"username": "helper"},
+        )
+        assert invite_res.status_code == 200
+
+        client.post("/api/logout")
+        _register_and_login(client, "helper", "Secret123", now_ms)
+        invites_res = client.get("/api/repository-invitations")
+        assert invites_res.status_code == 200
+        invitations = invites_res.json()["invitations"]
+        assert any(item["repository_name"] == "alpha_build" for item in invitations)
+
+        accept_res = client.post(
+            "/api/repository-invitations/accept",
+            json={"owner": "maker", "repository_name": "alpha_build"},
+        )
+        assert accept_res.status_code == 200
+
+        session_res = client.get("/api/session")
+        repositories = session_res.json()["repository_cards"]
+        assert any(item["repository_name"] == "alpha_build" for item in repositories)
+
+        edit_res = client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={"path": "src/app.py", "content": "print('contributor')\n"},
+        )
+        assert edit_res.status_code == 200
+
+        add_project_res = client.post(
+            "/api/repositories/maker/alpha_build/projects",
+            json={"name": "client", "description": "Blocked for contributors"},
+        )
+        assert add_project_res.status_code == 403
+
+        create_res = client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={"path": "src/new_module.py", "content": "print('blocked')\n"},
+        )
+        assert create_res.status_code == 403
+
+        upload_res = client.post(
+            "/api/repositories/maker/alpha_build/projects/server/upload",
+            files=[("files", ("docs/readme.txt", b"nope\n", "text/plain"))],
+        )
+        assert upload_res.status_code == 403
+
+    def test_upload_files_and_history_store_only_diff(self, client, now_ms, data_root):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+
+        upload_res = client.post(
+            "/api/repositories/maker/alpha_build/projects/server/upload",
+            files=[
+                ("files", ("src/app.py", b"print('hello')\n", "text/plain")),
+                ("files", ("static/site.css", b"body { color: red; }\n", "text/css")),
+            ],
+        )
+        assert upload_res.status_code == 200
+        uploaded_paths = [item["path"] for item in upload_res.json()["files"]]
+        assert "src/app.py" in uploaded_paths
+        assert "static/site.css" in uploaded_paths
+
+        client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={"path": "src/app.py", "content": "print('bye')\n"},
+        )
+
+        history_dir = data_root / "user_projects" / "maker" / "alpha_build" / "history"
+        history_files = sorted(history_dir.glob("*.json"))
+        assert history_files
+        last_entry = history_files[-1].read_text(encoding="utf-8")
+        assert "src/app.py" in last_entry
+        assert "-print('hello')" in last_entry
+        assert "+print('bye')" in last_entry
+
+    def test_download_repository_zip(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+        client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={"path": "src/app.py", "content": "print('zip')\n"},
+        )
+
+        res = client.get("/api/repositories/maker/alpha_build/archive.zip")
+
+        assert res.status_code == 200
+        assert res.headers["content-type"].startswith("application/zip")
+        archive = zipfile.ZipFile(io.BytesIO(res.content))
+        assert "alpha_build/server/src/app.py" in archive.namelist()
 
 
 class TestExploreAndPublicViews:

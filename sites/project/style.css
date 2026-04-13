@@ -52,6 +52,13 @@ body {
     gap: 16px;
 }
 
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
 .brand {
     color: var(--accent-dark);
     text-decoration: none;
@@ -108,6 +115,10 @@ h1 {
     font-size: 0.85rem;
 }
 
+.helper {
+    color: var(--muted);
+}
+
 .owner-card {
     display: flex;
     gap: 16px;
@@ -130,9 +141,255 @@ h1 {
     letter-spacing: 0.06em;
 }
 
+.avatar-image {
+    object-fit: cover;
+    background: transparent;
+}
+
 .owner-text {
     display: grid;
     gap: 6px;
+}
+
+.compact {
+    margin-bottom: 12px;
+}
+
+.workspace-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 0.9fr) minmax(0, 1.6fr);
+    gap: 18px;
+}
+
+.workspace-column {
+    display: grid;
+    gap: 12px;
+    align-content: start;
+}
+
+.workspace-editor {
+    min-width: 0;
+}
+
+.tab-list,
+.language-list {
+    display: grid;
+    gap: 10px;
+}
+
+.tab-button,
+.file-button,
+.tree-node {
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--surface-strong);
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+}
+
+.tab-button-active,
+.file-button-active,
+.tree-node-active {
+    border-color: rgba(31, 111, 92, 0.42);
+    background: rgba(31, 111, 92, 0.1);
+}
+
+.tree-shell {
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: rgba(255, 250, 243, 0.72);
+    padding: 10px;
+}
+
+.file-tree {
+    display: grid;
+    gap: 8px;
+    max-height: 430px;
+    overflow: auto;
+}
+
+.tree-group {
+    display: grid;
+    gap: 8px;
+}
+
+.tree-folder {
+    display: grid;
+    gap: 8px;
+}
+
+.tree-folder-children {
+    display: grid;
+    gap: 8px;
+}
+
+.tree-node {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tree-icon {
+    width: 1.1rem;
+    color: var(--muted);
+    flex: 0 0 auto;
+}
+
+.tree-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.field {
+    display: grid;
+    gap: 8px;
+}
+
+.field input,
+.field textarea {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    padding: 12px 14px;
+    font: inherit;
+    color: inherit;
+    background: rgba(255, 250, 243, 0.92);
+}
+
+.form-stack {
+    display: grid;
+    gap: 12px;
+}
+
+.status-message {
+    color: var(--muted);
+    min-height: 1.2em;
+}
+
+.editor {
+    width: 100%;
+    min-height: 340px;
+    resize: vertical;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: #fcf8f2;
+    padding: 16px;
+    font: 0.95rem/1.5 Consolas, "Courier New", monospace;
+    color: #201b16;
+}
+
+.file-preview {
+    margin: 0;
+    min-height: 220px;
+    max-height: 420px;
+    overflow: auto;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: #fcf8f2;
+    padding: 16px;
+    font: 0.92rem/1.55 Consolas, "Courier New", monospace;
+    color: #201b16;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.path-bar {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 14px;
+    background: rgba(255, 250, 243, 0.92);
+    color: var(--muted);
+    font-size: 0.92rem;
+    overflow-wrap: anywhere;
+}
+
+.upload-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.upload-card {
+    position: relative;
+    display: grid;
+    gap: 6px;
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background:
+        linear-gradient(135deg, rgba(31, 111, 92, 0.08), rgba(201, 137, 16, 0.06)),
+        var(--surface-strong);
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.upload-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(31, 111, 92, 0.38);
+    box-shadow: 0 14px 30px rgba(31, 111, 92, 0.1);
+}
+
+.upload-card input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    color: var(--accent-dark);
+}
+
+.upload-card strong {
+    font-size: 1rem;
+}
+
+.upload-card small {
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.upload-selection {
+    border-radius: 16px;
+    border: 1px dashed rgba(31, 111, 92, 0.3);
+    background: rgba(31, 111, 92, 0.05);
+    padding: 12px 14px;
+    color: var(--muted);
+    font-size: 0.94rem;
+}
+
+.language-row {
+    display: grid;
+    gap: 8px;
+}
+
+.language-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.progress-track {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(31, 111, 92, 0.12);
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #1f6f5c, #c98910);
 }
 
 .owner-link {
@@ -177,7 +434,17 @@ h1 {
         align-items: flex-start;
     }
 
+    .topbar-actions,
+    .upload-grid {
+        width: 100%;
+        grid-template-columns: 1fr;
+    }
+
     .owner-card {
         flex-direction: column;
+    }
+
+    .workspace-grid {
+        grid-template-columns: 1fr;
     }
 }
