@@ -163,7 +163,6 @@ createRepositoryForm.addEventListener("submit", async (event) => {
         description: createRepositoryForm.description.value.trim(),
         visibility: createRepositoryForm.visibility.value,
         project_names: projectNames,
-        timestamp: Date.now(),
     };
 
     const response = await fetch("/api/repositories", {

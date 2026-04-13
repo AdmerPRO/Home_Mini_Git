@@ -40,7 +40,8 @@ class TestRegisterSuccess:
         from core.database import User
 
         user = db_session.query(User).filter(User.username == "testuser").first()
-        assert user.created_at == valid_register_payload["timestamp"]
+        now_ms = int(time.time() * 1000)
+        assert now_ms - 5_000 <= user.created_at <= now_ms
 
 
 class TestRegisterDuplicate:
@@ -118,7 +119,7 @@ class TestRegisterValidation:
         )
         assert res.status_code == 422
 
-    def test_missing_timestamp(self, client):
+    def test_missing_timestamp_is_accepted(self, client):
         res = client.post(
             "/api/register",
             json={
@@ -126,7 +127,7 @@ class TestRegisterValidation:
                 "password": "Secret123",
             },
         )
-        assert res.status_code == 422
+        assert res.status_code == 200
 
     def test_missing_username(self, client, now_ms):
         res = client.post(
@@ -149,8 +150,20 @@ class TestRegisterValidation:
         assert res.status_code == 422
 
 
-class TestRegisterTimestamp:
-    def test_timestamp_too_old_returns_400(self, client):
+class TestRegisterProtection:
+    def test_rate_limit_is_disabled_in_tests(self, client, now_ms):
+        for index in range(6):
+            res = client.post(
+                "/api/register",
+                json={
+                    "username": f"validuser_{index}",
+                    "password": "Secret123",
+                    "timestamp": now_ms,
+                },
+            )
+            assert res.status_code == 200
+
+    def test_old_timestamp_is_ignored(self, client):
         old_ts = int(time.time() * 1000) - 10_000  # 10 seconds ago
         res = client.post(
             "/api/register",
@@ -160,10 +173,9 @@ class TestRegisterTimestamp:
                 "timestamp": old_ts,
             },
         )
-        assert res.status_code == 400
-        assert "timestamp" in res.json()["detail"].lower()
+        assert res.status_code == 200
 
-    def test_timestamp_in_future_returns_400(self, client):
+    def test_future_timestamp_is_ignored(self, client):
         future_ts = int(time.time() * 1000) + 10_000  # 10 seconds in future
         res = client.post(
             "/api/register",
@@ -173,9 +185,9 @@ class TestRegisterTimestamp:
                 "timestamp": future_ts,
             },
         )
-        assert res.status_code == 400
+        assert res.status_code == 200
 
-    def test_timestamp_within_tolerance_accepted(self, client, now_ms):
+    def test_current_timestamp_is_ignored(self, client, now_ms):
         # 3 seconds ago — within 5 s tolerance
         ts = now_ms - 3_000
         res = client.post(

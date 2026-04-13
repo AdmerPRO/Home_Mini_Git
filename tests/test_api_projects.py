@@ -73,6 +73,22 @@ class TestRepositoryCreation:
         assert body["profile"]["display_name"] == "Maker Prime"
         assert body["profile"]["bio"] == "Builds testable things."
 
+    def test_profile_update_sanitizes_html(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+
+        res = client.patch(
+            "/api/profile",
+            json={
+                "display_name": "<b>Maker</b>",
+                "bio": "<script>alert(1)</script>",
+            },
+        )
+
+        assert res.status_code == 200
+        body = res.json()
+        assert body["profile"]["display_name"] == "&lt;b&gt;Maker&lt;/b&gt;"
+        assert body["profile"]["bio"] == "&lt;script&gt;alert(1)&lt;/script&gt;"
+
 
 class TestExploreAndPublicViews:
     def test_explore_returns_only_public_repositories(self, client, now_ms, data_root):

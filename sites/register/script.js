@@ -6,8 +6,6 @@ form.addEventListener("submit", async (e) => {
 
     const username = form.username.value.trim();
     const password = form.password.value;
-    const timestamp = Date.now();
-
     if (username.length < 3) {
         errorMsg.textContent = "Username must have at least 3 characters";
         return;
@@ -22,7 +20,7 @@ form.addEventListener("submit", async (e) => {
         const res = await fetch("/api/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, timestamp })
+            body: JSON.stringify({ username, password })
         });
 
         const data = await res.json();

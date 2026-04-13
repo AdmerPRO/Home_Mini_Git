@@ -1,6 +1,8 @@
 import base64
 import hashlib
 import os
+import secrets
+import threading
 import time
 
 import jwt
@@ -11,10 +13,15 @@ from fastapi.responses import RedirectResponse, Response
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey123")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY or len(SECRET_KEY) < 32:
+    raise RuntimeError("SECRET_KEY must be set and at least 32 characters long")
+
 SESSION_COOKIE_NAME = "hmg_session"
-SESSION_MAX_AGE_SECONDS = 86400
+SESSION_MAX_AGE_SECONDS = int(os.getenv("SESSION_MAX_AGE_SECONDS", "86400"))
 FORCE_SECURE_COOKIE = os.getenv("FORCE_SECURE_COOKIE", "false").lower() == "true"
+_revoked_tokens_lock = threading.Lock()
+_revoked_tokens: dict[str, int] = {}
 
 
 def _get_fernet() -> Fernet:
@@ -29,6 +36,7 @@ def create_access_token(username: str) -> str:
         "username": username,
         "iat": now,
         "exp": now + SESSION_MAX_AGE_SECONDS,
+        "jti": secrets.token_hex(16),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
@@ -44,11 +52,51 @@ def decrypt_token(encrypted_token: str) -> str | None:
         return None
 
 
-def decode_access_token(token: str) -> dict | None:
+def _prune_revoked_tokens(now: int) -> None:
+    expired = [jti for jti, exp in _revoked_tokens.items() if exp <= now]
+    for jti in expired:
+        _revoked_tokens.pop(jti, None)
+
+
+def _decode_access_token_payload(token: str) -> dict | None:
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
     except jwt.PyJWTError:
         return None
+
+
+def decode_access_token(token: str) -> dict | None:
+    payload = _decode_access_token_payload(token)
+    if not payload:
+        return None
+
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if not isinstance(jti, str) or not isinstance(exp, int):
+        return None
+
+    now = int(time.time())
+    with _revoked_tokens_lock:
+        _prune_revoked_tokens(now)
+        if _revoked_tokens.get(jti, 0) > now:
+            return None
+
+    return payload
+
+
+def revoke_access_token(token: str) -> None:
+    payload = _decode_access_token_payload(token)
+    if not payload:
+        return
+
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if not isinstance(jti, str) or not isinstance(exp, int):
+        return
+
+    with _revoked_tokens_lock:
+        _prune_revoked_tokens(int(time.time()))
+        _revoked_tokens[jti] = exp
 
 
 def get_current_username(request: Request) -> str | None:

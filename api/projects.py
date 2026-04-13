@@ -1,5 +1,3 @@
-import time
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
@@ -8,13 +6,12 @@ from core import app_paths
 from core.auth import get_current_username
 from core.database import User, get_db
 from core.logger import get_logger
+from core.security import hash_identifier
 from utils.repository_manager_util import (
     create_repository,
     get_repository_details,
     setup_start,
 )
-
-TIMESTAMP_TOLERANCE_MS = 5500
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -25,7 +22,6 @@ class CreateRepositoryRequest(BaseModel):
     description: str = Field("", max_length=400)
     visibility: str = Field(..., pattern=r"^(public|private)$")
     project_names: list[str]
-    timestamp: int
 
     @field_validator("project_names")
     @classmethod
@@ -60,10 +56,6 @@ async def create_repository_endpoint(
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    server_time_ms = int(time.time() * 1000)
-    if abs(server_time_ms - req.timestamp) > TIMESTAMP_TOLERANCE_MS:
-        raise HTTPException(status_code=400, detail="Request timestamp out of range")
-
     setup_start(app_paths.DATA_ROOT)
 
     try:
@@ -85,7 +77,11 @@ async def create_repository_endpoint(
         public_only=False,
         increment_views=False,
     )
-    logger.info("Repository created owner=%s repository=%s", username, req.name)
+    logger.info(
+        "Repository created owner_hash=%s repository=%s",
+        hash_identifier(username),
+        req.name,
+    )
     return {"success": True, "repository": repository}
 
 

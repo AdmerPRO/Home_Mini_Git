@@ -5,9 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from api import explore as exploreapi
 from api import login as loginapi
@@ -17,6 +15,7 @@ from api import register as registerapi
 from api import session as sessionapi
 from core import app_paths
 from core.logger import configure_logging, get_logger
+from core.rate_limit import limiter
 from pages import page_not_found_html
 from routes import (
     dashboard,
@@ -32,7 +31,6 @@ from utils.repository_manager_util import setup_start
 
 configure_logging()
 logger = get_logger(__name__)
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 
 @asynccontextmanager
@@ -130,6 +128,13 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), "
+        "payment=(), usb=(), interest-cohort=()"
+    )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self'; "

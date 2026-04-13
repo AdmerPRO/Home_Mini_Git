@@ -2,6 +2,7 @@
 Shared pytest fixtures for Home_Mini_Git-server tests.
 """
 
+import os
 import time
 
 import pytest
@@ -13,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 # Use in-memory SQLite for tests — never touches the real Database.db
 # StaticPool ensures all connections share the same in-memory database
 TEST_DATABASE_URL = "sqlite:///:memory:"
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only-1234567890")
 
 
 @pytest.fixture(scope="session")
@@ -71,11 +73,9 @@ def client(db_session, data_root):
     TestClient with the real FastAPI app, but with the DB dependency
     overridden to use the in-memory test database.
     """
-    from slowapi import Limiter
-    from slowapi.util import get_remote_address
-
-    import main as main_module
     from core.database import get_db
+    from core.rate_limit import limiter
+    from core.security import reset_login_protection_state
     from main import app
 
     def override_get_db():
@@ -84,18 +84,16 @@ def client(db_session, data_root):
         finally:
             pass
 
-    # Disable rate limiting during tests: create a fresh in-memory limiter and
-    # patch BOTH app.state.limiter (read by slowapi middleware per-request) AND
-    # the module-level `limiter` object in main.py (held by the middleware stack
-    # reference captured at startup), so counts never bleed between tests.
-    fresh_limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
-    app.state.limiter = fresh_limiter
-    main_module.limiter = fresh_limiter
+    limiter.enabled = False
+    reset_login_protection_state()
+    app.state.limiter = limiter
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c
     app.dependency_overrides.clear()
+    reset_login_protection_state()
+    limiter.enabled = True
 
 
 @pytest.fixture()

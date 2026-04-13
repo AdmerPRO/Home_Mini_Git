@@ -10,6 +10,7 @@ from core.auth import (
     encrypt_token,
     get_current_username,
     redirect_to_login,
+    revoke_access_token,
     set_session_cookie,
 )
 
@@ -26,4 +27,5 @@ __all__ = [
     "set_session_cookie",
     "clear_session_cookie",
     "redirect_to_login",
+    "revoke_access_token",
 ]

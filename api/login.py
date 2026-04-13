@@ -1,5 +1,3 @@
-import time
-
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -8,8 +6,13 @@ from sqlalchemy.orm import Session
 from core.auth import create_access_token, set_session_cookie
 from core.database import User, get_db
 from core.logger import get_logger
-
-TIMESTAMP_TOLERANCE_MS = 5500  # 5 s tolerance + ~500 ms buffer for processing delay
+from core.rate_limit import limiter
+from core.security import (
+    clear_failed_logins,
+    hash_identifier,
+    is_account_locked,
+    register_failed_login,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -18,10 +21,10 @@ logger = get_logger(__name__)
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_]+$")
     password: str = Field(..., min_length=6, max_length=128, pattern=r"^\S+$")
-    timestamp: int
 
 
 @router.post("/login")
+@limiter.limit("5/minute")
 async def login_user(
     request: Request,
     req: LoginRequest,
@@ -29,31 +32,42 @@ async def login_user(
     db: Session = Depends(get_db),
 ):
     client_host = request.client.host if request.client else "unknown"
-    logger.info("Login attempt for user=%s from ip=%s", req.username, client_host)
+    user_hash = hash_identifier(req.username)
+    logger.info("Login attempt for user_hash=%s from ip=%s", user_hash, client_host)
 
     # Validate timestamp — max 5 seconds difference from server time
-    server_time_ms = int(time.time() * 1000)
-    if abs(server_time_ms - req.timestamp) > TIMESTAMP_TOLERANCE_MS:
+    if is_account_locked(req.username):
         logger.warning(
-            "Rejected login for user=%s due to invalid timestamp", req.username
+            "Rejected login for locked account user_hash=%s from ip=%s",
+            user_hash,
+            client_host,
         )
-        raise HTTPException(status_code=400, detail="Request timestamp out of range")
+        raise HTTPException(
+            status_code=429, detail="Too many login attempts. Try again later."
+        )
 
     user = db.query(User).filter(User.username == req.username).first()
-    if not user:
-        logger.warning("Rejected login because user=%s was not found", req.username)
-        raise HTTPException(status_code=400, detail="User not found")
-
-    if not bcrypt.checkpw(req.password.encode(), user.password.encode()):
+    valid_credentials = bool(user) and bcrypt.checkpw(
+        req.password.encode(), user.password.encode()
+    )
+    if not valid_credentials:
+        locked = register_failed_login(req.username)
         logger.warning(
-            "Rejected login due to invalid password for user=%s", req.username
+            "Rejected login due to invalid credentials for user_hash=%s from ip=%s",
+            user_hash,
+            client_host,
         )
-        raise HTTPException(status_code=400, detail="Incorrect password")
+        if locked:
+            raise HTTPException(
+                status_code=429, detail="Too many login attempts. Try again later."
+            )
+        raise HTTPException(status_code=400, detail="Invalid credentials")
 
     token = create_access_token(req.username)
     set_session_cookie(response, request, token)
     response.headers["Cache-Control"] = "no-store"
-    logger.debug("Session cookie set for user=%s", req.username)
-    logger.info("User logged in successfully user=%s", req.username)
+    clear_failed_logins(req.username)
+    logger.debug("Session cookie set for user_hash=%s", user_hash)
+    logger.info("User logged in successfully user_hash=%s", user_hash)
 
-    return {"success": True, "token": token, "nickname": req.username}
+    return {"success": True, "nickname": req.username}

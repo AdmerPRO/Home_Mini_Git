@@ -121,6 +121,11 @@ class TestSecurityHeaders:
         assert res.headers["X-Content-Type-Options"] == "nosniff"
         assert res.headers["X-Frame-Options"] == "DENY"
         assert res.headers["Referrer-Policy"] == "no-referrer"
+        assert (
+            res.headers["Strict-Transport-Security"]
+            == "max-age=31536000; includeSubDomains"
+        )
+        assert "camera=()" in res.headers["Permissions-Policy"]
         assert "default-src 'self'" in res.headers["Content-Security-Policy"]
 
     def test_session_response_disables_caching(self, client):

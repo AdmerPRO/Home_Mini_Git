@@ -7,7 +7,7 @@ import time
 
 import jwt
 
-from core.auth import SESSION_COOKIE_NAME
+from core.auth import SESSION_COOKIE_NAME, decrypt_token
 from utils.repository_manager_util import create_repository
 
 
@@ -26,7 +26,7 @@ def _register(client, username="testuser", password="Secret123", now_ms=None):
 
 
 class TestLoginSuccess:
-    def test_login_returns_success_and_token(self, client, now_ms):
+    def test_login_returns_success_without_token_in_body(self, client, now_ms):
         _register(client, now_ms=now_ms)
         res = client.post(
             "/api/login",
@@ -39,9 +39,7 @@ class TestLoginSuccess:
         assert res.status_code == 200
         body = res.json()
         assert body["success"] is True
-        assert "token" in body
-        assert isinstance(body["token"], str)
-        assert len(body["token"]) > 0
+        assert "token" not in body
         assert body["nickname"] == "testuser"
 
     def test_login_sets_encrypted_session_cookie(self, client, now_ms):
@@ -71,8 +69,10 @@ class TestLoginSuccess:
                 "timestamp": now_ms,
             },
         )
-        token = res.json()["token"]
-        secret = os.getenv("SECRET_KEY", "supersecretkey123")
+        encrypted_token = res.cookies.get(SESSION_COOKIE_NAME)
+        token = decrypt_token(encrypted_token)
+        assert token is not None
+        secret = os.environ["SECRET_KEY"]
         payload = jwt.decode(token, secret, algorithms=["HS256"])
         assert payload["username"] == "testuser"
 
@@ -86,8 +86,10 @@ class TestLoginSuccess:
                 "timestamp": now_ms,
             },
         )
-        token = res.json()["token"]
-        secret = os.getenv("SECRET_KEY", "supersecretkey123")
+        encrypted_token = res.cookies.get(SESSION_COOKIE_NAME)
+        token = decrypt_token(encrypted_token)
+        assert token is not None
+        secret = os.environ["SECRET_KEY"]
         payload = jwt.decode(token, secret, algorithms=["HS256"])
         # exp should be ~24h from iat
         delta = payload["exp"] - payload["iat"]
@@ -106,7 +108,7 @@ class TestLoginFailure:
             },
         )
         assert res.status_code == 400
-        assert "password" in res.json()["detail"].lower()
+        assert res.json()["detail"] == "Invalid credentials"
 
     def test_nonexistent_user_returns_400(self, client, now_ms):
         res = client.post(
@@ -118,7 +120,7 @@ class TestLoginFailure:
             },
         )
         assert res.status_code == 400
-        assert "not found" in res.json()["detail"].lower()
+        assert res.json()["detail"] == "Invalid credentials"
 
 
 class TestLoginValidation:
@@ -166,57 +168,44 @@ class TestLoginValidation:
         )
         assert res.status_code == 422
 
-    def test_missing_timestamp(self, client):
-        res = client.post(
-            "/api/login",
-            json={
-                "username": "validuser",
-                "password": "Secret123",
-            },
-        )
-        assert res.status_code == 422
-
-
-class TestLoginTimestamp:
-    def test_stale_timestamp_returns_400(self, client, now_ms):
-        _register(client, now_ms=now_ms)
-        old_ts = now_ms - 10_000
+    def test_missing_timestamp_is_accepted(self, client):
+        _register(client)
         res = client.post(
             "/api/login",
             json={
                 "username": "testuser",
                 "password": "Secret123",
-                "timestamp": old_ts,
-            },
-        )
-        assert res.status_code == 400
-        assert "timestamp" in res.json()["detail"].lower()
-
-    def test_future_timestamp_returns_400(self, client, now_ms):
-        _register(client, now_ms=now_ms)
-        future_ts = now_ms + 10_000
-        res = client.post(
-            "/api/login",
-            json={
-                "username": "testuser",
-                "password": "Secret123",
-                "timestamp": future_ts,
-            },
-        )
-        assert res.status_code == 400
-
-    def test_timestamp_at_edge_of_tolerance(self, client, now_ms):
-        _register(client, now_ms=now_ms)
-        ts = now_ms - 4_900  # just inside 5 s window
-        res = client.post(
-            "/api/login",
-            json={
-                "username": "testuser",
-                "password": "Secret123",
-                "timestamp": ts,
             },
         )
         assert res.status_code == 200
+
+
+class TestLoginProtection:
+    def test_account_is_locked_after_many_failed_attempts(self, client, now_ms):
+        _register(client, now_ms=now_ms)
+
+        for _ in range(9):
+            res = client.post(
+                "/api/login",
+                json={
+                    "username": "testuser",
+                    "password": "WrongPass1",
+                    "timestamp": now_ms,
+                },
+            )
+            assert res.status_code == 400
+
+        locked_res = client.post(
+            "/api/login",
+            json={
+                "username": "testuser",
+                "password": "WrongPass1",
+                "timestamp": now_ms,
+            },
+        )
+
+        assert locked_res.status_code == 429
+        assert "Too many login attempts" in locked_res.json()["detail"]
 
 
 class TestSessionFlow:
@@ -333,7 +322,7 @@ class TestSessionFlow:
 
     def test_logout_clears_session_cookie(self, client, now_ms):
         _register(client, now_ms=now_ms)
-        client.post(
+        login_res = client.post(
             "/api/login",
             json={
                 "username": "testuser",
@@ -348,3 +337,8 @@ class TestSessionFlow:
         assert SESSION_COOKIE_NAME in logout_res.headers.get("set-cookie", "")
         assert "Max-Age=0" in logout_res.headers.get("set-cookie", "")
         assert logout_res.json() == {"success": True}
+
+        stolen_cookie = login_res.cookies.get(SESSION_COOKIE_NAME)
+        client.cookies.set(SESSION_COOKIE_NAME, stolen_cookie)
+        session_res = client.get("/api/session")
+        assert session_res.json() == {"authenticated": False}

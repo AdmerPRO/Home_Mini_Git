@@ -23,13 +23,11 @@ form.addEventListener("submit", async (e) => {
     
     const username = form.username.value;
     const password = form.password.value;
-    const timestamp = Date.now();
-
     try {
         const res = await fetch("/api/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, timestamp })
+            body: JSON.stringify({ username, password })
         });
 
         const data = await res.json();

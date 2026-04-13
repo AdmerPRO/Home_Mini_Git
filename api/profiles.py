@@ -1,11 +1,14 @@
+import html
+
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from core import app_paths
 from core.auth import get_current_username
 from core.database import User, get_db
 from core.logger import get_logger
+from core.security import hash_identifier
 from utils.repository_manager_util import (
     get_user_profile,
     get_user_repositories,
@@ -20,6 +23,11 @@ logger = get_logger(__name__)
 class UpdateProfileRequest(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=50)
     bio: str = Field("", max_length=300)
+
+    @field_validator("display_name", "bio")
+    @classmethod
+    def sanitize_text(cls, value: str) -> str:
+        return html.escape(value.strip())
 
 
 @router.patch("/profile")
@@ -38,7 +46,7 @@ async def patch_profile(
     profile = update_user_profile(
         app_paths.DATA_ROOT, username, display_name=req.display_name, bio=req.bio
     )
-    logger.info("Profile updated for user=%s", username)
+    logger.info("Profile updated for user_hash=%s", hash_identifier(username))
     return {"success": True, "profile": profile}
 
 
