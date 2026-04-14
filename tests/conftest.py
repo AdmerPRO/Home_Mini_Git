@@ -15,6 +15,7 @@ from sqlalchemy.pool import StaticPool
 # StaticPool ensures all connections share the same in-memory database
 TEST_DATABASE_URL = "sqlite:///:memory:"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only-1234567890")
+os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
 
 
 @pytest.fixture(scope="session")
@@ -73,7 +74,7 @@ def client(db_session, data_root):
     TestClient with the real FastAPI app, but with the DB dependency
     overridden to use the in-memory test database.
     """
-    from core.database import get_db
+    import core.database as core_database
     from core.rate_limit import limiter
     from core.security import reset_login_protection_state
     from main import app
@@ -88,10 +89,13 @@ def client(db_session, data_root):
     reset_login_protection_state()
     app.state.limiter = limiter
 
-    app.dependency_overrides[get_db] = override_get_db
+    original_session_local = core_database.SessionLocal
+    core_database.SessionLocal = lambda: db_session
+    app.dependency_overrides[core_database.get_db] = override_get_db
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c
     app.dependency_overrides.clear()
+    core_database.SessionLocal = original_session_local
     reset_login_protection_state()
     limiter.enabled = True
 
@@ -106,7 +110,7 @@ def now_ms() -> int:
 def valid_register_payload(now_ms):
     return {
         "username": "testuser",
-        "password": "Secret123",
+        "password": "Secret1234",
         "timestamp": now_ms,
     }
 
@@ -115,6 +119,6 @@ def valid_register_payload(now_ms):
 def valid_login_payload(now_ms):
     return {
         "username": "testuser",
-        "password": "Secret123",
+        "password": "Secret1234",
         "timestamp": now_ms,
     }

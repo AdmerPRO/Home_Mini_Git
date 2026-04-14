@@ -3,6 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
@@ -32,6 +33,15 @@ from utils.repository_manager_util import setup_start
 
 configure_logging()
 logger = get_logger(__name__)
+MAX_REQUEST_SIZE_BYTES = int(os.getenv("MAX_REQUEST_SIZE_BYTES", str(26 * 1024 * 1024)))
+CORS_ALLOW_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ALLOW_ORIGINS",
+        "http://127.0.0.1:8000,http://localhost:8000",
+    ).split(",")
+    if origin.strip()
+]
 
 
 @asynccontextmanager
@@ -52,6 +62,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -125,6 +142,21 @@ app.include_router(messagesapi.router, prefix="/api", tags=["Messages"])
 
 
 @app.middleware("http")
+async def reject_large_requests(request: Request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_REQUEST_SIZE_BYTES:
+                return JSONResponse(
+                    {"detail": "Request body too large"},
+                    status_code=413,
+                )
+        except ValueError:
+            return JSONResponse({"detail": "Invalid Content-Length"}, status_code=400)
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -170,4 +202,5 @@ if __name__ == "__main__":
         host="127.0.0.1",
         port=8000,
         reload=False,
+        h11_max_incomplete_event_size=MAX_REQUEST_SIZE_BYTES,
     )

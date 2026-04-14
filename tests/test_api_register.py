@@ -21,7 +21,7 @@ class TestRegisterSuccess:
 
         user = db_session.query(User).filter(User.username == "testuser").first()
         assert user is not None
-        assert user.password != "Secret123"
+        assert user.password != "Secret1234"
         assert user.password.startswith("$2b$")
 
     def test_register_stores_correct_username(
@@ -58,7 +58,7 @@ class TestRegisterValidation:
             "/api/register",
             json={
                 "username": "ab",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -69,7 +69,7 @@ class TestRegisterValidation:
             "/api/register",
             json={
                 "username": "a" * 51,
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -80,7 +80,7 @@ class TestRegisterValidation:
             "/api/register",
             json={
                 "username": "user name!",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -124,7 +124,7 @@ class TestRegisterValidation:
             "/api/register",
             json={
                 "username": "validuser",
-                "password": "Secret123",
+                "password": "Secret1234",
             },
         )
         assert res.status_code == 200
@@ -133,7 +133,7 @@ class TestRegisterValidation:
         res = client.post(
             "/api/register",
             json={
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -157,7 +157,7 @@ class TestRegisterProtection:
                 "/api/register",
                 json={
                     "username": f"validuser_{index}",
-                    "password": "Secret123",
+                    "password": "Secret1234",
                     "timestamp": now_ms,
                 },
             )
@@ -169,7 +169,7 @@ class TestRegisterProtection:
             "/api/register",
             json={
                 "username": "validuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": old_ts,
             },
         )
@@ -181,7 +181,7 @@ class TestRegisterProtection:
             "/api/register",
             json={
                 "username": "validuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": future_ts,
             },
         )
@@ -194,7 +194,7 @@ class TestRegisterProtection:
             "/api/register",
             json={
                 "username": "validuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": ts,
             },
         )

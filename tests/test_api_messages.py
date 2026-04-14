@@ -22,11 +22,11 @@ def _register_and_login(client, username: str, password: str, now_ms: int) -> No
 
 class TestMessages:
     def test_send_and_read_message(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post("/api/logout")
-        _register_and_login(client, "friend", "Secret123", now_ms)
+        _register_and_login(client, "friend", "Secret1234", now_ms)
         client.post("/api/logout")
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
 
         send_res = client.post(
             "/api/messages",
@@ -39,7 +39,7 @@ class TestMessages:
         assert send_res.status_code == 200
 
         client.post("/api/logout")
-        _register_and_login(client, "friend", "Secret123", now_ms)
+        _register_and_login(client, "friend", "Secret1234", now_ms)
         inbox_res = client.get("/api/messages")
         assert inbox_res.status_code == 200
         messages = inbox_res.json()["messages"]

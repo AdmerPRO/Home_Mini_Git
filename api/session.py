@@ -22,7 +22,7 @@ router = APIRouter()
 async def get_session(
     request: Request, response: Response, db: Session = Depends(get_db)
 ):
-    username = get_current_username(request)
+    username = get_current_username(request, db)
     if not username:
         clear_session_cookie(response)
         response.headers["Cache-Control"] = "no-store"
@@ -47,12 +47,14 @@ async def get_session(
 
 
 @router.post("/logout")
-async def logout(request: Request, response: Response):
+async def logout(
+    request: Request, response: Response, db: Session = Depends(get_db)
+):
     encrypted_token = request.cookies.get(SESSION_COOKIE_NAME)
     if encrypted_token:
         token = decrypt_token(encrypted_token)
         if token:
-            revoke_access_token(token)
+            revoke_access_token(token, db)
     clear_session_cookie(response)
     response.headers["Cache-Control"] = "no-store"
     return {"success": True}

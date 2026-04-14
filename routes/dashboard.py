@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request, db: Session = Depends(get_db)):
-    username = get_current_username(request)
+    username = get_current_username(request, db)
     if not username:
         return redirect_to_login()
 

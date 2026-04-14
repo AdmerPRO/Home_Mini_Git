@@ -2,14 +2,17 @@ import base64
 import hashlib
 import os
 import secrets
-import threading
 import time
+from contextlib import contextmanager
 
 import jwt
 from cryptography.fernet import Fernet, InvalidToken
 from dotenv import load_dotenv
 from fastapi import Request
 from fastapi.responses import RedirectResponse, Response
+from sqlalchemy.orm import Session
+
+from core.database import Base, RevokedToken
 
 load_dotenv()
 
@@ -20,8 +23,6 @@ if not SECRET_KEY or len(SECRET_KEY) < 32:
 SESSION_COOKIE_NAME = "hmg_session"
 SESSION_MAX_AGE_SECONDS = int(os.getenv("SESSION_MAX_AGE_SECONDS", "86400"))
 FORCE_SECURE_COOKIE = os.getenv("FORCE_SECURE_COOKIE", "false").lower() == "true"
-_revoked_tokens_lock = threading.Lock()
-_revoked_tokens: dict[str, int] = {}
 
 
 def _get_fernet() -> Fernet:
@@ -52,10 +53,23 @@ def decrypt_token(encrypted_token: str) -> str | None:
         return None
 
 
-def _prune_revoked_tokens(now: int) -> None:
-    expired = [jti for jti, exp in _revoked_tokens.items() if exp <= now]
-    for jti in expired:
-        _revoked_tokens.pop(jti, None)
+@contextmanager
+def _revocation_session(db: Session | None):
+    if db is not None:
+        Base.metadata.create_all(bind=db.get_bind(), tables=[RevokedToken.__table__])
+        yield db
+        return
+
+    from core.database import SessionLocal
+
+    session = SessionLocal()
+    try:
+        Base.metadata.create_all(
+            bind=session.get_bind(), tables=[RevokedToken.__table__]
+        )
+        yield session
+    finally:
+        session.close()
 
 
 def _decode_access_token_payload(token: str) -> dict | None:
@@ -65,7 +79,7 @@ def _decode_access_token_payload(token: str) -> dict | None:
         return None
 
 
-def decode_access_token(token: str) -> dict | None:
+def decode_access_token(token: str, db: Session | None = None) -> dict | None:
     payload = _decode_access_token_payload(token)
     if not payload:
         return None
@@ -76,15 +90,21 @@ def decode_access_token(token: str) -> dict | None:
         return None
 
     now = int(time.time())
-    with _revoked_tokens_lock:
-        _prune_revoked_tokens(now)
-        if _revoked_tokens.get(jti, 0) > now:
+    with _revocation_session(db) as session:
+        session.query(RevokedToken).filter(RevokedToken.exp <= now).delete()
+        if (
+            session.query(RevokedToken)
+            .filter(RevokedToken.jti == jti, RevokedToken.exp > now)
+            .first()
+        ):
             return None
+        if db is None:
+            session.commit()
 
     return payload
 
 
-def revoke_access_token(token: str) -> None:
+def revoke_access_token(token: str, db: Session | None = None) -> None:
     payload = _decode_access_token_payload(token)
     if not payload:
         return
@@ -94,12 +114,14 @@ def revoke_access_token(token: str) -> None:
     if not isinstance(jti, str) or not isinstance(exp, int):
         return
 
-    with _revoked_tokens_lock:
-        _prune_revoked_tokens(int(time.time()))
-        _revoked_tokens[jti] = exp
+    now = int(time.time())
+    with _revocation_session(db) as session:
+        session.query(RevokedToken).filter(RevokedToken.exp <= now).delete()
+        session.merge(RevokedToken(jti=jti, exp=exp))
+        session.commit()
 
 
-def get_current_username(request: Request) -> str | None:
+def get_current_username(request: Request, db: Session | None = None) -> str | None:
     encrypted_token = request.cookies.get(SESSION_COOKIE_NAME)
     if not encrypted_token:
         return None
@@ -108,7 +130,7 @@ def get_current_username(request: Request) -> str | None:
     if not token:
         return None
 
-    payload = decode_access_token(token)
+    payload = decode_access_token(token, db=db)
     if not payload:
         return None
 

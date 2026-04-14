@@ -13,11 +13,17 @@ class TestUserModel:
     def test_user_table_exists(self, test_engine):
         inspector = inspect(test_engine)
         assert "users" in inspector.get_table_names()
+        assert "revoked_tokens" in inspector.get_table_names()
 
     def test_user_columns_exist(self, test_engine):
         inspector = inspect(test_engine)
         cols = {c["name"] for c in inspector.get_columns("users")}
         assert {"username", "password", "created_at"} <= cols
+
+    def test_revoked_token_columns_exist(self, test_engine):
+        inspector = inspect(test_engine)
+        cols = {c["name"] for c in inspector.get_columns("revoked_tokens")}
+        assert {"jti", "exp"} <= cols
 
     def test_create_user(self, db_session):
         from core.database import User

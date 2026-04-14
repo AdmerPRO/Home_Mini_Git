@@ -8,6 +8,7 @@ from core import app_paths
 from core.auth import get_current_username
 from core.database import User, get_db
 from core.logger import get_logger
+from core.rate_limit import limiter
 from core.security import hash_identifier
 from utils.message_manager_util import get_inbox, mark_message_read, send_message
 
@@ -31,7 +32,7 @@ class MarkReadRequest(BaseModel):
 
 
 def _require_authenticated_user(request: Request, db: Session) -> str:
-    username = get_current_username(request)
+    username = get_current_username(request, db)
     if not username:
         raise HTTPException(status_code=401, detail="Authentication required")
 
@@ -48,6 +49,7 @@ async def get_messages(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/messages")
+@limiter.limit("20/minute")
 async def send_message_endpoint(
     request: Request, req: SendMessageRequest, db: Session = Depends(get_db)
 ):
@@ -78,6 +80,7 @@ async def send_message_endpoint(
 
 
 @router.post("/messages/read")
+@limiter.limit("60/minute")
 async def mark_message_read_endpoint(
     request: Request, req: MarkReadRequest, db: Session = Depends(get_db)
 ):

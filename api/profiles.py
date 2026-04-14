@@ -8,6 +8,7 @@ from core import app_paths
 from core.auth import get_current_username
 from core.database import User, get_db
 from core.logger import get_logger
+from core.rate_limit import limiter
 from core.security import hash_identifier
 from utils.repository_manager_util import (
     get_user_profile,
@@ -23,7 +24,7 @@ logger = get_logger(__name__)
 class UpdateProfileRequest(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=50)
     bio: str = Field("", max_length=300)
-    avatar_image: str = Field("", max_length=300_000)
+    avatar_image: str = Field("", max_length=50_000)
 
     @field_validator("display_name", "bio")
     @classmethod
@@ -49,10 +50,11 @@ class UpdateProfileRequest(BaseModel):
 
 
 @router.patch("/profile")
+@limiter.limit("10/minute")
 async def patch_profile(
     request: Request, req: UpdateProfileRequest, db: Session = Depends(get_db)
 ):
-    username = get_current_username(request)
+    username = get_current_username(request, db)
     if not username:
         raise HTTPException(status_code=401, detail="Authentication required")
 

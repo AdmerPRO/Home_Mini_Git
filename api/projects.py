@@ -1,3 +1,6 @@
+import os
+import re
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -7,6 +10,7 @@ from core import app_paths
 from core.auth import get_current_username
 from core.database import User, get_db
 from core.logger import get_logger
+from core.rate_limit import limiter
 from core.security import hash_identifier
 from utils.repository_content_util import (
     build_repository_zip,
@@ -30,6 +34,12 @@ from utils.repository_manager_util import (
 
 router = APIRouter()
 logger = get_logger(__name__)
+PROJECT_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,50}$")
+MAX_UPLOAD_FILE_SIZE = int(os.getenv("MAX_UPLOAD_FILE_SIZE_BYTES", str(10 * 1024 * 1024)))
+MAX_UPLOAD_FILE_COUNT = int(os.getenv("MAX_UPLOAD_FILE_COUNT", "50"))
+MAX_UPLOAD_TOTAL_SIZE = int(
+    os.getenv("MAX_UPLOAD_TOTAL_SIZE_BYTES", str(25 * 1024 * 1024))
+)
 
 
 class CreateRepositoryRequest(BaseModel):
@@ -50,6 +60,8 @@ class CreateRepositoryRequest(BaseModel):
                 continue
             if project_name in seen:
                 continue
+            if not PROJECT_PATTERN.fullmatch(project_name):
+                raise ValueError(f"Invalid project name: {project_name!r}")
             seen.add(project_name)
             normalized.append(project_name)
 
@@ -81,7 +93,7 @@ class AcceptInviteRequest(BaseModel):
 
 
 def _require_authenticated_user(request: Request, db: Session) -> str:
-    username = get_current_username(request)
+    username = get_current_username(request, db)
     if not username:
         raise HTTPException(status_code=401, detail="Authentication required")
 
@@ -145,6 +157,7 @@ def _require_repository_editor(
 
 
 @router.post("/repositories")
+@limiter.limit("10/minute")
 async def create_repository_endpoint(
     request: Request, req: CreateRepositoryRequest, db: Session = Depends(get_db)
 ):
@@ -205,6 +218,7 @@ async def get_repository_endpoint(
 
 
 @router.post("/repositories/{owner}/{repository_name}/projects")
+@limiter.limit("20/minute")
 async def create_repository_project_endpoint(
     owner: str,
     repository_name: str,
@@ -347,6 +361,7 @@ async def get_project_file_endpoint(
 
 
 @router.put("/repositories/{owner}/{repository_name}/projects/{project_name}/file")
+@limiter.limit("60/minute")
 async def update_project_file_endpoint(
     owner: str,
     repository_name: str,
@@ -390,6 +405,7 @@ async def update_project_file_endpoint(
 
 
 @router.post("/repositories/{owner}/{repository_name}/invite")
+@limiter.limit("20/minute")
 async def invite_contributor_endpoint(
     owner: str,
     repository_name: str,
@@ -427,6 +443,7 @@ async def get_repository_invitations_endpoint(
 
 
 @router.post("/repository-invitations/accept")
+@limiter.limit("20/minute")
 async def accept_repository_invitation_endpoint(
     request: Request,
     req: AcceptInviteRequest,
@@ -446,6 +463,7 @@ async def accept_repository_invitation_endpoint(
 
 
 @router.post("/repositories/{owner}/{repository_name}/projects/{project_name}/upload")
+@limiter.limit("20/minute")
 async def upload_project_files_endpoint(
     owner: str,
     repository_name: str,
@@ -455,11 +473,27 @@ async def upload_project_files_endpoint(
     db: Session = Depends(get_db),
 ):
     _require_repository_owner(request, db, owner, repository_name)
+    if len(files) > MAX_UPLOAD_FILE_COUNT:
+        raise HTTPException(status_code=400, detail="Too many files were uploaded")
+
     prepared_files = []
+    total_size = 0
     for file in files:
         if not file.filename:
             continue
-        prepared_files.append((file.filename, await file.read()))
+        content = await file.read(MAX_UPLOAD_FILE_SIZE + 1)
+        if len(content) > MAX_UPLOAD_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"{file.filename} exceeds the {MAX_UPLOAD_FILE_SIZE} byte limit",
+            )
+        total_size += len(content)
+        if total_size > MAX_UPLOAD_TOTAL_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="Uploaded files exceed the total request size limit",
+            )
+        prepared_files.append((file.filename, content))
 
     if not prepared_files:
         raise HTTPException(status_code=400, detail="No files were uploaded")

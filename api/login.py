@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 class LoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_]+$")
-    password: str = Field(..., min_length=6, max_length=128, pattern=r"^\S+$")
+    password: str = Field(..., min_length=10, max_length=128, pattern=r"^\S+$")
 
 
 @router.post("/login")
@@ -36,7 +36,7 @@ async def login_user(
     logger.info("Login attempt for user_hash=%s from ip=%s", user_hash, client_host)
 
     # Validate timestamp — max 5 seconds difference from server time
-    if is_account_locked(req.username):
+    if is_account_locked(req.username, ip=client_host):
         logger.warning(
             "Rejected login for locked account user_hash=%s from ip=%s",
             user_hash,
@@ -51,7 +51,7 @@ async def login_user(
         req.password.encode(), user.password.encode()
     )
     if not valid_credentials:
-        locked = register_failed_login(req.username)
+        locked = register_failed_login(req.username, ip=client_host)
         logger.warning(
             "Rejected login due to invalid credentials for user_hash=%s from ip=%s",
             user_hash,
@@ -66,7 +66,7 @@ async def login_user(
     token = create_access_token(req.username)
     set_session_cookie(response, request, token)
     response.headers["Cache-Control"] = "no-store"
-    clear_failed_logins(req.username)
+    clear_failed_logins(req.username, ip=client_host)
     logger.debug("Session cookie set for user_hash=%s", user_hash)
     logger.info("User logged in successfully user_hash=%s", user_hash)
 

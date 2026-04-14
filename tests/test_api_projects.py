@@ -34,7 +34,7 @@ def _register_and_login(client, username: str, password: str, now_ms: int) -> No
 
 class TestRepositoryCreation:
     def test_create_repository_returns_metadata(self, client, now_ms, data_root):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
 
         res = client.post(
             "/api/repositories",
@@ -60,7 +60,7 @@ class TestRepositoryCreation:
         assert stored["owner"] == "maker"
 
     def test_profile_update_persists(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
 
         res = client.patch(
             "/api/profile",
@@ -77,7 +77,7 @@ class TestRepositoryCreation:
         assert body["profile"]["bio"] == "Builds testable things."
 
     def test_profile_update_sanitizes_html(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
 
         res = client.patch(
             "/api/profile",
@@ -93,7 +93,7 @@ class TestRepositoryCreation:
         assert body["profile"]["bio"] == "&lt;script&gt;alert(1)&lt;/script&gt;"
 
     def test_profile_update_keeps_apostrophes(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
 
         res = client.patch(
             "/api/profile",
@@ -110,7 +110,7 @@ class TestRepositoryCreation:
         assert body["profile"]["bio"] == "I'm building tools for devs."
 
     def test_profile_update_stores_avatar(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
 
         res = client.patch(
             "/api/profile",
@@ -125,8 +125,22 @@ class TestRepositoryCreation:
         body = res.json()
         assert body["profile"]["avatar_image"] == "data:image/png;base64,ZmFrZQ=="
 
+    def test_profile_update_rejects_oversized_avatar(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret1234", now_ms)
+
+        res = client.patch(
+            "/api/profile",
+            json={
+                "display_name": "Maker Prime",
+                "bio": "Builds testable things.",
+                "avatar_image": "data:image/png;base64," + ("A" * 60_000),
+            },
+        )
+
+        assert res.status_code == 422
+
     def test_add_project_file_and_read_it_back(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={
@@ -163,8 +177,24 @@ class TestRepositoryCreation:
         assert read_res.status_code == 200
         assert read_res.json()["content"] == "print('hello')\n"
 
+    def test_create_repository_rejects_invalid_project_name(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret1234", now_ms)
+
+        res = client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["../../../etc"],
+                "timestamp": now_ms,
+            },
+        )
+
+        assert res.status_code == 422
+
     def test_add_project_and_language_stats(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={
@@ -204,7 +234,7 @@ class TestRepositoryCreation:
         assert "HTML" in languages
 
     def test_only_contributors_can_edit_repository(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={
@@ -216,7 +246,7 @@ class TestRepositoryCreation:
             },
         )
         client.post("/api/logout")
-        _register_and_login(client, "outsider", "Secret123", now_ms)
+        _register_and_login(client, "outsider", "Secret1234", now_ms)
 
         update_res = client.put(
             "/api/repositories/maker/alpha_build/projects/server/file",
@@ -227,7 +257,7 @@ class TestRepositoryCreation:
     def test_owner_can_invite_contributor_and_contributor_can_edit(
         self, client, now_ms
     ):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={
@@ -243,9 +273,9 @@ class TestRepositoryCreation:
             json={"path": "src/app.py", "content": "print('owner')\n"},
         )
         client.post("/api/logout")
-        _register_and_login(client, "helper", "Secret123", now_ms)
+        _register_and_login(client, "helper", "Secret1234", now_ms)
         client.post("/api/logout")
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
 
         invite_res = client.post(
             "/api/repositories/maker/alpha_build/invite",
@@ -254,7 +284,7 @@ class TestRepositoryCreation:
         assert invite_res.status_code == 200
 
         client.post("/api/logout")
-        _register_and_login(client, "helper", "Secret123", now_ms)
+        _register_and_login(client, "helper", "Secret1234", now_ms)
         invites_res = client.get("/api/repository-invitations")
         assert invites_res.status_code == 200
         invitations = invites_res.json()["invitations"]
@@ -295,7 +325,7 @@ class TestRepositoryCreation:
         assert upload_res.status_code == 403
 
     def test_upload_files_and_history_store_only_diff(self, client, now_ms, data_root):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={
@@ -332,8 +362,107 @@ class TestRepositoryCreation:
         assert "-print('hello')" in last_entry
         assert "+print('bye')" in last_entry
 
+    def test_upload_rejects_too_many_files(self, client, now_ms, monkeypatch):
+        from api import projects as projects_module
+
+        _register_and_login(client, "maker", "Secret1234", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+        monkeypatch.setattr(projects_module, "MAX_UPLOAD_FILE_COUNT", 1)
+
+        upload_res = client.post(
+            "/api/repositories/maker/alpha_build/projects/server/upload",
+            files=[
+                ("files", ("src/app.py", b"print('hello')\n", "text/plain")),
+                ("files", ("static/site.css", b"body { color: red; }\n", "text/css")),
+            ],
+        )
+
+        assert upload_res.status_code == 400
+        assert "Too many files" in upload_res.json()["detail"]
+
+    def test_upload_rejects_oversized_file(self, client, now_ms, monkeypatch):
+        from api import projects as projects_module
+
+        _register_and_login(client, "maker", "Secret1234", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+        monkeypatch.setattr(projects_module, "MAX_UPLOAD_FILE_SIZE", 4)
+
+        upload_res = client.post(
+            "/api/repositories/maker/alpha_build/projects/server/upload",
+            files=[("files", ("src/app.py", b"print('hello')\n", "text/plain"))],
+        )
+
+        assert upload_res.status_code == 413
+        assert "exceeds" in upload_res.json()["detail"]
+
+    def test_upload_rejects_hidden_path_segments(self, client, now_ms):
+        _register_and_login(client, "maker", "Secret1234", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+
+        upload_res = client.post(
+            "/api/repositories/maker/alpha_build/projects/server/upload",
+            files=[("files", (".env", b"SECRET=1\n", "text/plain"))],
+        )
+
+        assert upload_res.status_code == 400
+        assert upload_res.json()["detail"] == "Invalid file path"
+
+    def test_repository_quota_blocks_large_write(self, client, now_ms, monkeypatch):
+        from utils import repository_content_util
+
+        _register_and_login(client, "maker", "Secret1234", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "alpha_build",
+                "description": "First public test repository",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+        monkeypatch.setattr(repository_content_util, "REPOSITORY_STORAGE_QUOTA_BYTES", 8)
+
+        save_res = client.put(
+            "/api/repositories/maker/alpha_build/projects/server/file",
+            json={
+                "path": "src/app.py",
+                "content": "print('hello')\n",
+            },
+        )
+
+        assert save_res.status_code == 400
+        assert "quota" in save_res.json()["detail"].lower()
+
     def test_download_repository_zip(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={
@@ -361,7 +490,7 @@ class TestExploreAndPublicViews:
     def test_repository_viewer_flags_distinguish_owner_from_others(
         self, client, now_ms
     ):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={
@@ -384,14 +513,14 @@ class TestExploreAndPublicViews:
         assert anonymous_res.json()["viewer_is_owner"] is False
         assert anonymous_res.json()["viewer_can_edit"] is False
 
-        _register_and_login(client, "helper", "Secret123", now_ms)
+        _register_and_login(client, "helper", "Secret1234", now_ms)
         contributor_res = client.get("/api/repositories/maker/public_alpha")
         assert contributor_res.status_code == 200
         assert contributor_res.json()["viewer_is_owner"] is False
         assert contributor_res.json()["viewer_can_edit"] is False
 
     def test_explore_returns_only_public_repositories(self, client, now_ms, data_root):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={
@@ -439,7 +568,7 @@ class TestExploreAndPublicViews:
         assert any(user["username"] == "other_user" for user in body["users"])
 
     def test_user_endpoint_returns_only_public_repositories(self, client, now_ms):
-        _register_and_login(client, "maker", "Secret123", now_ms)
+        _register_and_login(client, "maker", "Secret1234", now_ms)
         client.post(
             "/api/repositories",
             json={

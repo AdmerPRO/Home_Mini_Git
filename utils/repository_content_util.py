@@ -2,6 +2,7 @@ import mimetypes
 import difflib
 import io
 import json
+import os
 import time
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -29,6 +30,9 @@ LANGUAGE_BY_EXTENSION = {
 }
 SAFE_PATH_SEGMENT = set(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+)
+REPOSITORY_STORAGE_QUOTA_BYTES = int(
+    os.getenv("REPOSITORY_STORAGE_QUOTA_BYTES", str(200 * 1024 * 1024))
 )
 
 
@@ -81,8 +85,33 @@ def _normalize_relative_path(relative_path: str) -> str:
     for part in pure.parts:
         if not part or any(char not in SAFE_PATH_SEGMENT for char in part):
             raise ValueError("Invalid file path")
+        if part.startswith("."):
+            raise ValueError("Invalid file path")
 
     return pure.as_posix()
+
+
+def _ensure_repository_quota(
+    base_path: Path,
+    owner: str,
+    repository_name: str,
+    new_size: int,
+    previous_size: int,
+) -> None:
+    repository_projects_root = _repository_projects_root(
+        base_path, owner, repository_name
+    )
+    if not repository_projects_root.exists():
+        raise ValueError("Repository not found")
+
+    current_total = 0
+    for file_path in repository_projects_root.rglob("*"):
+        if file_path.is_file():
+            current_total += file_path.stat().st_size
+
+    projected_total = current_total - previous_size + new_size
+    if projected_total > REPOSITORY_STORAGE_QUOTA_BYTES:
+        raise ValueError("Repository storage quota exceeded")
 
 
 def _resolve_project_file(
@@ -197,6 +226,15 @@ def write_project_file(
             base_path, owner, repository_name, project_name, normalized_path
         )
 
+    previous_size = len(old_content.encode("utf-8")) if old_content is not None else 0
+    new_size = len(new_content.encode("utf-8"))
+    _ensure_repository_quota(
+        base_path,
+        owner,
+        repository_name,
+        new_size=new_size,
+        previous_size=previous_size,
+    )
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(new_content, encoding="utf-8")
     touch_repository(base_path, owner, repository_name)
@@ -259,6 +297,13 @@ def write_project_bytes(
             ),
         }
 
+    _ensure_repository_quota(
+        base_path,
+        owner,
+        repository_name,
+        new_size=len(content),
+        previous_size=len(old_bytes),
+    )
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_bytes(content)
     touch_repository(base_path, owner, repository_name)

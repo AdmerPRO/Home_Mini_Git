@@ -11,7 +11,7 @@ from core.auth import SESSION_COOKIE_NAME, decrypt_token
 from utils.repository_manager_util import create_repository
 
 
-def _register(client, username="testuser", password="Secret123", now_ms=None):
+def _register(client, username="testuser", password="Secret1234", now_ms=None):
     """Helper to pre-register a user before login tests."""
     ts = now_ms or int(time.time() * 1000)
     res = client.post(
@@ -32,7 +32,7 @@ class TestLoginSuccess:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -48,7 +48,7 @@ class TestLoginSuccess:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -65,7 +65,7 @@ class TestLoginSuccess:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -82,7 +82,7 @@ class TestLoginSuccess:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -115,7 +115,7 @@ class TestLoginFailure:
             "/api/login",
             json={
                 "username": "ghost_user",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -129,7 +129,7 @@ class TestLoginValidation:
             "/api/login",
             json={
                 "username": "ab",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -140,7 +140,7 @@ class TestLoginValidation:
             "/api/login",
             json={
                 "username": "bad user!",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -174,7 +174,7 @@ class TestLoginValidation:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
             },
         )
         assert res.status_code == 200
@@ -207,6 +207,33 @@ class TestLoginProtection:
         assert locked_res.status_code == 429
         assert "Too many login attempts" in locked_res.json()["detail"]
 
+    def test_ip_is_locked_across_multiple_usernames(self, client, now_ms):
+        usernames = [f"user_{index}" for index in range(9)]
+        for username in usernames:
+            _register(client, username=username, now_ms=now_ms)
+            res = client.post(
+                "/api/login",
+                json={
+                    "username": username,
+                    "password": "WrongPass1",
+                    "timestamp": now_ms,
+                },
+            )
+            assert res.status_code == 400
+
+        _register(client, username="last_user", now_ms=now_ms)
+        locked_res = client.post(
+            "/api/login",
+            json={
+                "username": "last_user",
+                "password": "WrongPass1",
+                "timestamp": now_ms,
+            },
+        )
+
+        assert locked_res.status_code == 429
+        assert "Too many login attempts" in locked_res.json()["detail"]
+
 
 class TestSessionFlow:
     def test_session_returns_authenticated_user_and_repositories(self, client, now_ms):
@@ -215,7 +242,7 @@ class TestSessionFlow:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -239,7 +266,7 @@ class TestSessionFlow:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -297,7 +324,7 @@ class TestSessionFlow:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -323,7 +350,7 @@ class TestSessionFlow:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )

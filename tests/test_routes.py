@@ -41,7 +41,7 @@ class TestDashboardPage:
             "/api/register",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )
@@ -49,7 +49,7 @@ class TestDashboardPage:
             "/api/login",
             json={
                 "username": "testuser",
-                "password": "Secret123",
+                "password": "Secret1234",
                 "timestamp": now_ms,
             },
         )

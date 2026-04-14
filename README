@@ -19,9 +19,16 @@ Done so far:
 - File-based repository index stored in `user_projects/repositories_index.json`
 - Automated tests for routes, database, register API, login API, repository API and utilities
 - Logging with `INFO` by default and `DEBUG` when `DEBUG=true` in `server/.env`
+- Rate limiting enabled for all API routes, with stricter caps on login, uploads and profile mutations
+- Revoked session tokens are persisted in SQLite so logout survives restarts and multi-worker deployments
 
 Repository model:
 - Repository example: `superloginsite`
 - Projects inside repository: `server`, `client`
 - Private repositories stay on the owner dashboard
 - Public repositories are visible in `/explore` and on user profile pages
+
+Security notes:
+- Set `FORCE_SECURE_COOKIE=true` in every non-localhost deployment so session cookies are always sent with the `Secure` flag.
+- The default SQLite database now lives under `server/data/Database.db`.
+- Uploads are protected by per-file, per-request and per-repository size limits. If you deploy behind a reverse proxy, mirror those limits there as well.
