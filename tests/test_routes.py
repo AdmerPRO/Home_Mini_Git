@@ -89,6 +89,14 @@ class TestPublicDetailPages:
         assert res.status_code == 200
         assert "text/html" in res.headers["content-type"]
 
+    def test_repository_page_uses_current_repository_asset(self, client):
+        res = client.get("/repositories/testuser/example")
+
+        assert 'src="/repository-assets/script.js?v=5"' in res.text
+        assert "script-v2.js" not in res.text
+        assert 'id="repositoryPath"' in res.text
+        assert 'id="currentProjectDescription"' in res.text
+
 
 class TestPageNotFound:
     def test_pagenotfound_route_returns_200(self, client):

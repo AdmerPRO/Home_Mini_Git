@@ -46,7 +46,25 @@ const state = {
     viewerCanEdit: false,
     currentProject: "",
     currentFilePath: "",
+    currentFiles: [],
 };
+
+function setFormAvailability(formId, enabled) {
+    const form = document.getElementById(formId);
+    form.hidden = !enabled;
+    form.setAttribute("aria-hidden", String(!enabled));
+
+    for (const element of form.elements) {
+        element.disabled = !enabled;
+    }
+}
+
+function applyOwnerVisibility() {
+    setFormAvailability("addProjectForm", state.viewerIsOwner);
+    setFormAvailability("addFileForm", state.viewerIsOwner);
+    setFormAvailability("uploadForm", state.viewerIsOwner);
+    setFormAvailability("inviteContributorForm", state.viewerIsOwner);
+}
 
 function formatBytes(bytes) {
     if (!bytes) {
@@ -61,8 +79,23 @@ function formatBytes(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatDate(timestamp) {
+    if (!timestamp) {
+        return "Unknown update";
+    }
+
+    return new Date(timestamp).toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
 async function fetchJson(url, options = {}) {
     const response = await fetch(url, {
+        cache: "no-store",
         credentials: "same-origin",
         headers: { Accept: "application/json", ...(options.headers || {}) },
         ...options,
@@ -114,6 +147,190 @@ async function loadLanguageStats() {
     renderLanguageStats(data);
 }
 
+function renderRepositoryProjects(projects) {
+    const repositoryProjects = document.getElementById("repositoryProjects");
+    repositoryProjects.innerHTML = "";
+
+    for (const project of projects || []) {
+        const card = document.createElement("article");
+        card.className = "project-summary-card";
+
+        const title = document.createElement("strong");
+        title.textContent = project.name;
+
+        const description = document.createElement("p");
+        description.className = "helper";
+        description.textContent = project.description || "No project description yet.";
+
+        card.append(title, description);
+        repositoryProjects.appendChild(card);
+    }
+}
+
+function getCurrentProjectRecord() {
+    return (state.repository?.projects || []).find(
+        (project) => project.name === state.currentProject
+    );
+}
+
+function buildFileTree(files) {
+    const root = [];
+
+    for (const file of files) {
+        const parts = file.path.split("/");
+        let level = root;
+
+        for (let index = 0; index < parts.length; index += 1) {
+            const part = parts[index];
+            const isFile = index === parts.length - 1;
+            let node = level.find((item) => item.name === part);
+
+            if (!node) {
+                node = {
+                    type: isFile ? "file" : "folder",
+                    name: part,
+                    path: parts.slice(0, index + 1).join("/"),
+                    children: [],
+                };
+                level.push(node);
+            }
+
+            if (!isFile) {
+                level = node.children;
+            }
+        }
+    }
+
+    return root;
+}
+
+function renderTreeNodes(container, nodes, depth = 0) {
+    const sortedNodes = [...nodes].sort((left, right) => {
+        if (left.type !== right.type) {
+            return left.type === "folder" ? -1 : 1;
+        }
+        return left.name.localeCompare(right.name);
+    });
+
+    for (const node of sortedNodes) {
+        if (node.type === "folder") {
+            const group = document.createElement("div");
+            group.className = "tree-folder";
+
+            const folder = document.createElement("div");
+            folder.className = "tree-node";
+            folder.style.paddingLeft = `${12 + depth * 18}px`;
+
+            const icon = document.createElement("span");
+            icon.className = "tree-icon";
+            icon.textContent = "▾";
+
+            const label = document.createElement("span");
+            label.className = "tree-label";
+            label.textContent = node.name;
+
+            folder.append(icon, label);
+
+            const children = document.createElement("div");
+            children.className = "tree-folder-children";
+            renderTreeNodes(children, node.children, depth + 1);
+
+            group.append(folder, children);
+            container.appendChild(group);
+            continue;
+        }
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tree-node";
+        if (node.path === state.currentFilePath) {
+            button.classList.add("tree-node-active");
+        }
+        button.style.paddingLeft = `${12 + depth * 18}px`;
+
+        const icon = document.createElement("span");
+        icon.className = "tree-icon";
+        icon.textContent = "•";
+
+        const label = document.createElement("span");
+        label.className = "tree-label";
+        label.textContent = node.name;
+
+        button.append(icon, label);
+        button.addEventListener("click", async () => {
+            state.currentFilePath = node.path;
+            await loadFile(node.path);
+            renderFileTree(state.currentFiles);
+        });
+        container.appendChild(button);
+    }
+}
+
+function renderFileTree(files) {
+    const fileList = document.getElementById("fileList");
+    const treeSummary = document.getElementById("treeSummary");
+    fileList.innerHTML = "";
+    state.currentFiles = files;
+    treeSummary.textContent = `${files.length} file${files.length === 1 ? "" : "s"}`;
+
+    if (!files.length) {
+        const empty = document.createElement("p");
+        empty.className = "helper";
+        empty.textContent = "No files in this project yet.";
+        fileList.appendChild(empty);
+        return;
+    }
+
+    renderTreeNodes(fileList, buildFileTree(files));
+}
+
+function updateCurrentProjectDescription() {
+    const currentProjectDescription = document.getElementById(
+        "currentProjectDescription"
+    );
+    const project = getCurrentProjectRecord();
+    currentProjectDescription.textContent = project?.description
+        ? `${project.description} (${project.name})`
+        : project
+          ? `Browsing ${project.name}.`
+          : "Pick a project to browse its files.";
+}
+
+function updateUploadSelectionSummary() {
+    const uploadForm = document.getElementById("uploadForm");
+    const uploadSelection = document.getElementById("uploadSelection");
+    const normalFiles = Array.from(uploadForm.elements.upload_files.files || []);
+    const folderFiles = Array.from(uploadForm.elements.upload_folder.files || []);
+    const selected = [...normalFiles, ...folderFiles];
+
+    if (!selected.length) {
+        uploadSelection.textContent = "Nothing selected yet.";
+        return;
+    }
+
+    const names = selected.slice(0, 4).map((file) => file.webkitRelativePath || file.name);
+    const suffix = selected.length > 4 ? ` and ${selected.length - 4} more` : "";
+    uploadSelection.textContent = names.join(", ") + suffix;
+}
+
+function normalizeUploadPath(file, projectName) {
+    const rawPath = file.webkitRelativePath || file.name;
+    if (!file.webkitRelativePath) {
+        return rawPath;
+    }
+
+    const segments = rawPath.split("/").filter(Boolean);
+    if (segments.length <= 1) {
+        return rawPath;
+    }
+
+    if (segments[0].toLowerCase() === projectName.toLowerCase()) {
+        return segments.slice(1).join("/");
+    }
+
+    return rawPath;
+}
+
 function renderProjectTabs(projects) {
     const projectTabs = document.getElementById("projectTabs");
     projectTabs.innerHTML = "";
@@ -125,11 +342,24 @@ function renderProjectTabs(projects) {
         if (project.name === state.currentProject) {
             button.classList.add("tab-button-active");
         }
-        button.textContent = project.name;
+
+        const title = document.createElement("div");
+        title.className = "tab-button-title";
+        title.append(
+            Object.assign(document.createElement("span"), { textContent: project.name }),
+            badge(project.name === state.currentProject ? "Active" : "Project")
+        );
+
+        const description = document.createElement("p");
+        description.className = "helper";
+        description.textContent = project.description || "No project description yet.";
+
+        button.append(title, description);
         button.addEventListener("click", async () => {
             state.currentProject = project.name;
             state.currentFilePath = "";
-            renderProjectTabs(state.repository.projects);
+            updateCurrentProjectDescription();
+            renderProjectTabs(state.repository.projects || []);
             await loadProjectFiles();
         });
         projectTabs.appendChild(button);
@@ -137,10 +367,9 @@ function renderProjectTabs(projects) {
 }
 
 async function loadProjectFiles() {
-    const fileList = document.getElementById("fileList");
-    fileList.innerHTML = "";
-
+    renderFileTree([]);
     if (!state.currentProject) {
+        updateCurrentProjectDescription();
         return;
     }
 
@@ -151,33 +380,21 @@ async function loadProjectFiles() {
         return;
     }
 
-    for (const file of data.files || []) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "file-button";
-        if (file.path === state.currentFilePath) {
-            button.classList.add("file-button-active");
-        }
-        button.textContent = file.path;
-        button.addEventListener("click", async () => {
-            state.currentFilePath = file.path;
-            await loadFile(file.path);
-            await loadProjectFiles();
-        });
-        fileList.appendChild(button);
-    }
+    renderFileTree(data.files || []);
+    updateCurrentProjectDescription();
 
     if (!state.currentFilePath && (data.files || []).length > 0) {
         const readme = data.files.find((file) => file.is_readme) || data.files[0];
         state.currentFilePath = readme.path;
         await loadFile(state.currentFilePath);
-        await loadProjectFiles();
+        renderFileTree(data.files || []);
     }
 }
 
 async function loadFile(path) {
     const fileEditor = document.getElementById("fileEditor");
     const editorTitle = document.getElementById("editorTitle");
+    const editorPath = document.getElementById("editorPath");
     const editorMeta = document.getElementById("editorMeta");
     const saveFileButton = document.getElementById("saveFileButton");
 
@@ -188,13 +405,15 @@ async function loadFile(path) {
     if (!response.ok) {
         fileEditor.value = "";
         editorTitle.textContent = "Could not load file";
+        editorPath.textContent = path;
         editorMeta.textContent = response.status === 404 ? "Missing file" : "Error";
         return;
     }
 
     fileEditor.value = data.content || "";
-    editorTitle.textContent = data.path;
-    editorMeta.textContent = `${formatBytes(data.size)} · ${state.currentProject}`;
+    editorTitle.textContent = data.path.split("/").pop() || data.path;
+    editorPath.textContent = `${state.currentProject} / ${data.path}`;
+    editorMeta.textContent = `${formatBytes(data.size)} | ${formatDate(data.updated_at)}`;
     fileEditor.readOnly = !state.viewerCanEdit;
     saveFileButton.hidden = !state.viewerCanEdit;
 }
@@ -207,6 +426,7 @@ async function loadProject() {
     const repositoryResponse = await fetch(
         `/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repositoryName)}`,
         {
+            cache: "no-store",
             headers: { Accept: "application/json" },
             credentials: "same-origin",
         }
@@ -219,6 +439,7 @@ async function loadProject() {
 
     const repositoryData = await repositoryResponse.json();
     const userResponse = await fetch(`/api/users/${encodeURIComponent(owner)}`, {
+        cache: "no-store",
         headers: { Accept: "application/json" },
         credentials: "same-origin",
     });
@@ -237,8 +458,10 @@ async function loadProject() {
     state.currentProject = repository.projects?.[0]?.name || "";
     const ownerProfile = (await userResponse.json()).profile;
 
+    document.getElementById("repositoryPath").textContent = `${owner}/${repository.repository_name}`;
     document.getElementById("repositoryTitle").textContent = repository.repository_name;
-    document.getElementById("repositoryDescription").textContent = repository.description;
+    document.getElementById("repositoryDescription").textContent =
+        repository.description || "No repository description yet.";
 
     const repositoryMeta = document.getElementById("repositoryMeta");
     repositoryMeta.innerHTML = "";
@@ -247,21 +470,13 @@ async function loadProject() {
     repositoryMeta.appendChild(badge(`${repository.projects_count} projects`));
     repositoryMeta.appendChild(badge(`${repository.contributors_count} contributors`));
 
-    const repositoryProjects = document.getElementById("repositoryProjects");
-    repositoryProjects.innerHTML = "";
-    for (const project of repository.projects) {
-        const item = document.createElement("div");
-        item.className = "owner-text";
+    repositoryMeta.appendChild(
+        badge(state.viewerCanEdit ? "Writable session" : "Read-only session")
+    );
+    renderRepositoryProjects(repository.projects || []);
 
-        const title = document.createElement("strong");
-        title.textContent = project.name;
-
-        const description = document.createElement("p");
-        description.textContent = project.description;
-
-        item.append(title, description);
-        repositoryProjects.appendChild(item);
-    }
+    const downloadZipLink = document.getElementById("downloadZipLink");
+    downloadZipLink.href = `/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repositoryName)}/archive.zip`;
 
     const ownerProfileLink = document.getElementById("ownerProfileLink");
     ownerProfileLink.href = `/users/${encodeURIComponent(ownerProfile.username)}`;
@@ -284,10 +499,12 @@ async function loadProject() {
     ownerLink.textContent = ownerProfile.display_name || ownerProfile.username;
 
     const handle = document.createElement("p");
+    handle.className = "helper";
     handle.textContent = `@${ownerProfile.username}`;
 
     const bio = document.createElement("p");
-    bio.textContent = ownerProfile.bio;
+    bio.className = "helper";
+    bio.textContent = ownerProfile.bio || "No profile bio yet.";
 
     text.append(ownerLink, handle, bio);
     ownerCard.appendChild(text);
@@ -297,15 +514,23 @@ async function loadProject() {
             ? "Owner editor"
             : "Contributor editor"
         : "Read only";
-    document.getElementById("addProjectForm").hidden = !state.viewerIsOwner;
-    document.getElementById("addFileForm").hidden = !state.viewerIsOwner;
-    document.getElementById("uploadForm").hidden = !state.viewerIsOwner;
-    document.getElementById("inviteContributorForm").hidden = !state.viewerIsOwner;
+    applyOwnerVisibility();
 
     renderProjectTabs(repository.projects || []);
+    updateCurrentProjectDescription();
     await loadProjectFiles();
     await loadLanguageStats();
 }
+
+applyOwnerVisibility();
+updateUploadSelectionSummary();
+
+document
+    .querySelector('input[name="upload_files"]')
+    .addEventListener("change", updateUploadSelectionSummary);
+document
+    .querySelector('input[name="upload_folder"]')
+    .addEventListener("change", updateUploadSelectionSummary);
 
 document.getElementById("saveFileButton").addEventListener("click", async () => {
     const fileEditor = document.getElementById("fileEditor");
@@ -378,10 +603,14 @@ document.getElementById("addProjectForm").addEventListener("submit", async (even
 
     state.repository = data.repository;
     state.currentProject = payload.name;
+    state.currentFilePath = "";
     event.currentTarget.reset();
     projectMsg.textContent = "Project added.";
+    renderRepositoryProjects(state.repository.projects || []);
     renderProjectTabs(state.repository.projects || []);
+    updateCurrentProjectDescription();
     await loadProjectFiles();
+    await loadLanguageStats();
 });
 
 document.getElementById("uploadForm").addEventListener("submit", async (event) => {
@@ -393,7 +622,7 @@ document.getElementById("uploadForm").addEventListener("submit", async (event) =
     const normalFiles = Array.from(event.currentTarget.elements.upload_files.files || []);
     const folderFiles = Array.from(event.currentTarget.elements.upload_folder.files || []);
     for (const file of [...normalFiles, ...folderFiles]) {
-        const relativePath = file.webkitRelativePath || file.name;
+        const relativePath = normalizeUploadPath(file, state.currentProject);
         formData.append("files", file, relativePath);
     }
 
@@ -406,6 +635,7 @@ document.getElementById("uploadForm").addEventListener("submit", async (event) =
         `/api/repositories/${encodeURIComponent(state.owner)}/${encodeURIComponent(state.repositoryName)}/projects/${encodeURIComponent(state.currentProject)}/upload`,
         {
             method: "POST",
+            cache: "no-store",
             credentials: "same-origin",
             body: formData,
         }
@@ -417,7 +647,10 @@ document.getElementById("uploadForm").addEventListener("submit", async (event) =
     }
 
     event.currentTarget.reset();
+    updateUploadSelectionSummary();
     uploadMsg.textContent = `${data.files.length} files uploaded.`;
+    state.currentFiles = data.files || [];
+    renderFileTree(state.currentFiles);
     await loadLanguageStats();
     await loadProjectFiles();
 });
@@ -449,5 +682,6 @@ document.getElementById("inviteContributorForm").addEventListener("submit", asyn
 });
 
 loadProject().catch(() => {
+    applyOwnerVisibility();
     window.location.replace("/pagenotfound");
 });

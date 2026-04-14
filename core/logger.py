@@ -14,6 +14,7 @@ load_dotenv()
 LOGS_DIR = SERVER_ROOT / "logs"
 LATEST_LOG_PATH = LOGS_DIR / "latest.txt"
 _FILE_HANDLER_NAME = "home-mini-git-latest-file"
+_CONSOLE_HANDLER_NAME = "home-mini-git-console"
 
 
 def _is_debug_enabled() -> bool:
@@ -66,9 +67,25 @@ def _ensure_file_handler(
     root_logger.addHandler(file_handler)
 
 
+def _ensure_console_handler(
+    root_logger: logging.Logger, formatter: logging.Formatter, level: int
+) -> None:
+    for handler in root_logger.handlers:
+        if getattr(handler, "name", "") == _CONSOLE_HANDLER_NAME:
+            handler.setLevel(level)
+            handler.setFormatter(formatter)
+            return
+
+    console_handler = logging.StreamHandler()
+    console_handler.set_name(_CONSOLE_HANDLER_NAME)
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+
 def _remove_non_file_handlers(root_logger: logging.Logger) -> None:
     for handler in list(root_logger.handlers):
-        if getattr(handler, "name", "") == _FILE_HANDLER_NAME:
+        if getattr(handler, "name", "") in {_FILE_HANDLER_NAME, _CONSOLE_HANDLER_NAME}:
             continue
         root_logger.removeHandler(handler)
         handler.close()
@@ -91,6 +108,7 @@ def configure_logging() -> None:
 
     root_logger.setLevel(level)
     _ensure_file_handler(root_logger, formatter, level)
+    _ensure_console_handler(root_logger, formatter, level)
     _remove_non_file_handlers(root_logger)
 
     for handler in root_logger.handlers:

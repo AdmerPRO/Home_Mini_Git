@@ -358,6 +358,38 @@ class TestRepositoryCreation:
 
 
 class TestExploreAndPublicViews:
+    def test_repository_viewer_flags_distinguish_owner_from_others(
+        self, client, now_ms
+    ):
+        _register_and_login(client, "maker", "Secret123", now_ms)
+        client.post(
+            "/api/repositories",
+            json={
+                "name": "public_alpha",
+                "description": "Visible to everyone",
+                "visibility": "public",
+                "project_names": ["server"],
+                "timestamp": now_ms,
+            },
+        )
+
+        owner_res = client.get("/api/repositories/maker/public_alpha")
+        assert owner_res.status_code == 200
+        assert owner_res.json()["viewer_is_owner"] is True
+        assert owner_res.json()["viewer_can_edit"] is True
+
+        client.post("/api/logout")
+        anonymous_res = client.get("/api/repositories/maker/public_alpha")
+        assert anonymous_res.status_code == 200
+        assert anonymous_res.json()["viewer_is_owner"] is False
+        assert anonymous_res.json()["viewer_can_edit"] is False
+
+        _register_and_login(client, "helper", "Secret123", now_ms)
+        contributor_res = client.get("/api/repositories/maker/public_alpha")
+        assert contributor_res.status_code == 200
+        assert contributor_res.json()["viewer_is_owner"] is False
+        assert contributor_res.json()["viewer_can_edit"] is False
+
     def test_explore_returns_only_public_repositories(self, client, now_ms, data_root):
         _register_and_login(client, "maker", "Secret123", now_ms)
         client.post(
